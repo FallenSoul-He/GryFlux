@@ -22,11 +22,7 @@
 namespace GryFlux
 {
     PipelineInstance::PipelineInstance(PipelineBuilderPool *builderPool)
-        : builderPool_(builderPool),
-          lastUsedTime_(std::chrono::steady_clock::now()),
-          graphInitialized_(false)
-    {
-    }
+        : builderPool_(builderPool){}
 
     void PipelineInstance::prepare(const ProcessorFunction &processor,
                                    std::shared_ptr<DataObject> input,
@@ -41,7 +37,6 @@ namespace GryFlux
         if (!builder_)
         {
             builder_ = builderPool_->acquire();
-            graphInitialized_ = false;
         }
 
         if (!builder_)
@@ -55,14 +50,11 @@ namespace GryFlux
         {
             processor(builder_, std::move(input), outputNodeId);
         }
-        graphInitialized_ = true;
-        lastUsedTime_ = std::chrono::steady_clock::now();
     }
 
     std::shared_ptr<DataObject> PipelineInstance::execute(const std::string &outputNodeId)
     {
         auto result = builder_->execute(outputNodeId);
-        lastUsedTime_ = std::chrono::steady_clock::now();
         return result;
     }
 
@@ -74,7 +66,6 @@ namespace GryFlux
             builder_->enableProfiling(false);
             builder_.reset();
         }
-        graphInitialized_ = false;
     }
 
 } // namespace GryFlux

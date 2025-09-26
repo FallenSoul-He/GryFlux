@@ -52,14 +52,10 @@ namespace GryFlux
         // 清理内部状态，为下次使用做准备
         void reset();
 
-        // 获取上一次使用时间
-        std::chrono::steady_clock::time_point lastUsed() const { return lastUsedTime_; }
 
     private:
         std::shared_ptr<PipelineBuilder> builder_;
         PipelineBuilderPool *builderPool_;
-        std::chrono::steady_clock::time_point lastUsedTime_;
-        bool graphInitialized_;
     };
 
 } // namespace GryFlux
