@@ -33,13 +33,13 @@ namespace GryFlux
         // 在原有input数据的基础上添加1000-2000
         auto result = std::make_shared<CustomPackage>();
         for (auto i : data) result->push_data(i);
-        for (int i = 0; i < 1000; i++)
+        for (int i = 0; i < 100; i++)
         {
             /* code */
-            result->push_data(i+1000);
+            result->push_data(i+100);
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         return result;
     }
 }

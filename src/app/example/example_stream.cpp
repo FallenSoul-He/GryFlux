@@ -143,8 +143,7 @@ int main(int argc, char **argv)
 
     consumer.join();
     LOG.info("[main] Consumer finished, processed %d frames", consumer.getProcessedFrames());
-
-    pipeline.stop();
+    
     LOG.info("[main] Pipeline stopped");
     return 0;
 }

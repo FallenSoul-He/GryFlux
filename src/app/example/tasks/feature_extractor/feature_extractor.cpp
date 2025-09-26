@@ -29,10 +29,10 @@ namespace GryFlux
         std::vector<int> data;
         input_data->get_data(data);
 
-        // 在原有input数据的基础上添加0-1000
+        // 在原有input数据的基础上添加0-100
         auto result = std::make_shared<CustomPackage>();
         for (auto i : data) result->push_data(i);
-        for (int i = 0; i < 1000; i++)
+        for (int i = 0; i < 100; i++)
         {
             /* code */
             result->push_data(i);
