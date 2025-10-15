@@ -71,6 +71,7 @@ namespace GryFlux
         using TaskPtr = std::shared_ptr<ProcessingTask>;
         using Factory = std::function<TaskPtr()>;
 
+        ProcessingTaskPool() = default;
         ProcessingTaskPool(size_t capacity, Factory factory);
         ~ProcessingTaskPool();
 
@@ -80,21 +81,18 @@ namespace GryFlux
         TaskPtr acquire();
         void release(TaskPtr task);
         void shutdown();
+        void addInstances(Factory factory, size_t count = 1);
 
-        size_t capacity() const { return capacity_; }
+        size_t capacity() const;
         size_t available() const;
 
     private:
-        void initialize();
-
-        size_t capacity_;
-        Factory factory_;
         std::vector<TaskPtr> allTasks_;
         std::deque<TaskPtr> idleTasks_;
 
         mutable std::mutex mutex_;
         std::condition_variable cv_;
-        bool stopped_;
+        bool stopped_{false};
     };
 
     // 定义任务注册表类，用于管理所有处理任务
@@ -136,11 +134,6 @@ namespace GryFlux
         template <typename T, typename... Args>
         std::string registerTaskWithCount(const std::string &taskId, size_t instanceCount, Args &&...args)
         {
-            if (taskPools_.find(taskId) != taskPools_.end())
-            {
-                throw std::runtime_error("Task already registered: " + taskId);
-            }
-
             if (instanceCount == 0)
             {
                 instanceCount = 1;
@@ -154,8 +147,19 @@ namespace GryFlux
                                   { return std::make_shared<T>(ctorArgs...); }, *params);
             };
 
-            auto pool = std::make_shared<ProcessingTaskPool>(instanceCount, std::move(factory));
-            taskPools_.emplace(taskId, std::move(pool));
+            std::shared_ptr<ProcessingTaskPool> pool;
+            auto it = taskPools_.find(taskId);
+            if (it == taskPools_.end())
+            {
+                pool = std::make_shared<ProcessingTaskPool>();
+                taskPools_.emplace(taskId, pool);
+            }
+            else
+            {
+                pool = it->second;
+            }
+
+            pool->addInstances(factory, instanceCount);
             return taskId;
         }
 

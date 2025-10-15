@@ -69,6 +69,8 @@ namespace GryFlux
             totalProcessingTime_ = 0.0;
         }
 
+        workerInstances_.clear();
+
         startTime_ = std::chrono::high_resolution_clock::now();
 
         running_ = true;
@@ -84,7 +86,12 @@ namespace GryFlux
         workerCount_ = instanceCount;
 
         builderPool_ = std::make_unique<PipelineBuilderPool>(instanceCount, schedulerThreadCount_);
-        initializeInstancePool();
+
+        workerInstances_.reserve(instanceCount);
+        for (size_t i = 0; i < instanceCount; ++i)
+        {
+            workerInstances_.push_back(std::make_shared<PipelineInstance>(builderPool_.get()));
+        }
         launchWorkers();
 
         LOG.debug("[Pipeline] Started streaming pipeline with %zu workers", workerCount_);
@@ -99,12 +106,18 @@ namespace GryFlux
 
         input_active_ = false;
 
-        instanceCv_.notify_all();
         joinWorkers();
 
         output_active_ = false;
 
-        clearInstancePool();
+        for (auto &instance : workerInstances_)
+        {
+            if (instance)
+            {
+                instance->reset();
+            }
+        }
+        workerInstances_.clear();
 
         if (builderPool_)
         {
@@ -302,69 +315,6 @@ namespace GryFlux
         processingWorkers_.clear();
     }
 
-    void StreamingPipeline::initializeInstancePool()
-    {
-        std::lock_guard<std::mutex> lock(instanceMutex_);
-        instancePool_.clear();
-        instanceFreeList_.clear();
-        size_t count = workerCount_ > 0 ? workerCount_ : 1;
-        if (count == 0)
-        {
-            count = 1;
-        }
-        instancePool_.reserve(count);
-        for (size_t i = 0; i < count; ++i)
-        {
-            auto instance = std::make_shared<PipelineInstance>(builderPool_.get());
-            instancePool_.push_back(instance);
-            instanceFreeList_.push_back(std::move(instance));
-        }
-    }
-
-    void StreamingPipeline::clearInstancePool()
-    {
-        std::lock_guard<std::mutex> lock(instanceMutex_);
-        for (auto &instance : instancePool_)
-        {
-            if (instance)
-            {
-                instance->reset();
-            }
-        }
-        instancePool_.clear();
-        instanceFreeList_.clear();
-    }
-
-    std::shared_ptr<PipelineInstance> StreamingPipeline::acquireInstance()
-    {
-        std::unique_lock<std::mutex> lock(instanceMutex_);
-        instanceCv_.wait(lock, [this]
-                         { return !instanceFreeList_.empty() || !running_.load(); });
-
-        if (instanceFreeList_.empty())
-        {
-            return nullptr;
-        }
-
-        auto instance = instanceFreeList_.front();
-        instanceFreeList_.pop_front();
-        return instance;
-    }
-
-    void StreamingPipeline::releaseInstance(const std::shared_ptr<PipelineInstance> &instance)
-    {
-        if (!instance)
-        {
-            return;
-        }
-
-        {
-            std::lock_guard<std::mutex> lock(instanceMutex_);
-            instanceFreeList_.push_back(instance);
-        }
-        instanceCv_.notify_one();
-    }
-
     void StreamingPipeline::setSchedulerThreadCount(size_t threadCount)
     {
         if (running_.load())
@@ -394,9 +344,16 @@ namespace GryFlux
                 continue;
             }
 
-            auto instance = acquireInstance();
+            if (workerIndex >= workerInstances_.size())
+            {
+                LOG.error("[Pipeline] Worker index %zu out of range", workerIndex);
+                break;
+            }
+
+            auto instance = workerInstances_[workerIndex];
             if (!instance)
             {
+                LOG.error("[Pipeline] Worker instance %zu is null", workerIndex);
                 break;
             }
 
@@ -475,7 +432,6 @@ namespace GryFlux
             }
 
             instance->reset();
-            releaseInstance(instance);
         }
 
         LOG.debug("[Pipeline] Processing loop completed");

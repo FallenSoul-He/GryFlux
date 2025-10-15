@@ -19,9 +19,7 @@
 #include <atomic>
 #include <cstdint>
 #include <chrono>
-#include <condition_variable>
 #include <functional>
-#include <deque>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -113,12 +111,6 @@ namespace GryFlux
         void launchWorkers();
         void joinWorkers();
 
-        // 对象池相关方法
-        void initializeInstancePool();
-        void clearInstancePool();
-        std::shared_ptr<PipelineInstance> acquireInstance();
-        void releaseInstance(const std::shared_ptr<PipelineInstance> &instance);
-
         using DataObjectQueue = std::shared_ptr<threadsafe_queue<std::shared_ptr<DataObject>>>;
         DataObjectQueue inputQueue_;
         std::atomic<bool> input_active_;
@@ -137,10 +129,7 @@ namespace GryFlux
 
         mutable std::mutex statsMutex_;
 
-        std::vector<std::shared_ptr<PipelineInstance>> instancePool_;
-        std::deque<std::shared_ptr<PipelineInstance>> instanceFreeList_;
-        mutable std::mutex instanceMutex_;
-        std::condition_variable instanceCv_;
+        std::vector<std::shared_ptr<PipelineInstance>> workerInstances_;
 
         std::unique_ptr<PipelineBuilderPool> builderPool_;
 

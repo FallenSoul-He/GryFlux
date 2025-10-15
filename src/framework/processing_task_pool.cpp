@@ -23,47 +23,19 @@ namespace GryFlux
 {
 
     ProcessingTaskPool::ProcessingTaskPool(size_t capacity, Factory factory)
-        : capacity_(capacity == 0 ? 1 : capacity),
-          factory_(std::move(factory)),
-          stopped_(false)
+        : stopped_(false)
     {
-        if (!factory_)
+        if (capacity == 0)
         {
-            throw std::invalid_argument("ProcessingTaskPool requires a valid factory");
+            capacity = 1;
         }
 
-        initialize();
+        addInstances(std::move(factory), capacity);
     }
 
     ProcessingTaskPool::~ProcessingTaskPool()
     {
         shutdown();
-    }
-
-    void ProcessingTaskPool::initialize()
-    {
-        allTasks_.reserve(capacity_);
-        idleTasks_.clear();
-
-        try
-        {
-            for (size_t i = 0; i < capacity_; ++i)
-            {
-                auto task = factory_();
-                if (!task)
-                {
-                    throw std::runtime_error("ProcessingTaskPool factory produced null instance");
-                }
-                allTasks_.push_back(task);
-                idleTasks_.push_back(std::move(task));
-            }
-        }
-        catch (...)
-        {
-            idleTasks_.clear();
-            allTasks_.clear();
-            throw;
-        }
     }
 
     ProcessingTaskPool::TaskPtr ProcessingTaskPool::acquire()
@@ -100,6 +72,55 @@ namespace GryFlux
         cv_.notify_one();
     }
 
+    void ProcessingTaskPool::addInstances(Factory factory, size_t count)
+    {
+        if (!factory)
+        {
+            throw std::invalid_argument("ProcessingTaskPool requires a valid factory");
+        }
+
+        if (count == 0)
+        {
+            count = 1;
+        }
+
+        std::vector<TaskPtr> newTasks;
+        newTasks.reserve(count);
+
+        try
+        {
+            for (size_t i = 0; i < count; ++i)
+            {
+                auto task = factory();
+                if (!task)
+                {
+                    throw std::runtime_error("ProcessingTaskPool factory produced null instance");
+                }
+                newTasks.push_back(std::move(task));
+            }
+        }
+        catch (...)
+        {
+            throw;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (stopped_)
+            {
+                throw std::runtime_error("Cannot add instances to a stopped ProcessingTaskPool");
+            }
+
+            for (auto &task : newTasks)
+            {
+                allTasks_.push_back(task);
+                idleTasks_.push_back(std::move(task));
+            }
+        }
+
+        cv_.notify_all();
+    }
+
     void ProcessingTaskPool::shutdown()
     {
         {
@@ -121,6 +142,12 @@ namespace GryFlux
     {
         std::lock_guard<std::mutex> lock(mutex_);
         return idleTasks_.size();
+    }
+
+    size_t ProcessingTaskPool::capacity() const
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return allTasks_.size();
     }
 
     TaskRegistry::~TaskRegistry()
