@@ -63,6 +63,9 @@ namespace GryFlux
         {
             std::lock_guard<std::mutex> lock(statsMutex_);
             taskStats_.clear();
+            workerTaskStats_.clear();
+            workerProcessedItems_.clear();
+            workerTotalProcessingTime_.clear();
             totalProcessingTime_ = 0.0;
         }
 
@@ -146,6 +149,41 @@ namespace GryFlux
 
                     LOG.info("  - Task [%s]: %.3f ms (average of %zu executions across all items)",
                              taskName.c_str(), avgTime, count);
+                }
+            }
+
+            if (!workerProcessedItems_.empty())
+            {
+                LOG.info("[Pipeline] Per-worker execution statistics:");
+                for (const auto &workerEntry : workerProcessedItems_)
+                {
+                    size_t workerIndex = workerEntry.first;
+                    size_t frameCount = workerEntry.second;
+
+                    double workerTotalTime = 0.0;
+                    auto totalIt = workerTotalProcessingTime_.find(workerIndex);
+                    if (totalIt != workerTotalProcessingTime_.end())
+                    {
+                        workerTotalTime = totalIt->second;
+                    }
+
+                    double avgFrameTime = frameCount > 0 ? workerTotalTime / static_cast<double>(frameCount) : 0.0;
+                    LOG.info("  - Worker [%zu]: processed %zu items, avg frame time %.3f ms",
+                             workerIndex, frameCount, avgFrameTime);
+
+                    auto taskIt = workerTaskStats_.find(workerIndex);
+                    if (taskIt != workerTaskStats_.end() && !taskIt->second.empty())
+                    {
+                        for (const auto &taskEntry : taskIt->second)
+                        {
+                            const std::string &taskName = taskEntry.first;
+                            double taskTotal = taskEntry.second.first;
+                            size_t taskCount = taskEntry.second.second;
+                            double avgTaskTime = taskCount > 0 ? taskTotal / static_cast<double>(taskCount) : 0.0;
+                            LOG.info("      * Task [%s]: %.3f ms (average of %zu executions)",
+                                     taskName.c_str(), avgTaskTime, taskCount);
+                        }
+                    }
                 }
             }
         }
@@ -413,11 +451,22 @@ namespace GryFlux
                 {
                     std::lock_guard<std::mutex> lock(statsMutex_);
                     totalProcessingTime_ += frameDurationMs;
+                    workerTotalProcessingTime_[workerIndex] += frameDurationMs;
+                    workerProcessedItems_[workerIndex] += 1;
                     for (const auto &entry : frameTaskTimes)
                     {
                         auto &stat = taskStats_[entry.first];
                         stat.first += entry.second;
                         stat.second += 1;
+
+                        auto &workerStat = workerTaskStats_[workerIndex][entry.first];
+                        workerStat.first += entry.second;
+                        workerStat.second += 1;
+                    }
+                    if (frameTaskTimes.empty())
+                    {
+                        // 确保即使 frameTaskTimes 为空也记录处理次数
+                        workerTaskStats_[workerIndex];
                     }
                 }
 

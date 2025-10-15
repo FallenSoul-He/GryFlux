@@ -149,6 +149,10 @@ namespace GryFlux
         std::atomic<size_t> errorCount_;
         double totalProcessingTime_; // 单位：毫秒
 
+        std::unordered_map<size_t, double> workerTotalProcessingTime_;
+        std::unordered_map<size_t, size_t> workerProcessedItems_;
+        std::unordered_map<size_t, std::unordered_map<std::string, std::pair<double, size_t>>> workerTaskStats_;
+
         // 是否启用性能分析
         bool profilingEnabled_ = false;
 
