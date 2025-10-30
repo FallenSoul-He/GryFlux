@@ -152,4 +152,5 @@ data/
 install/
 models/
 outputs/
-
+profile/
+*.json
