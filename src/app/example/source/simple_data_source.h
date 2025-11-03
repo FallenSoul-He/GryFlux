@@ -1,0 +1,48 @@
+/*************************************************************************************************************************
+ * Copyright 2025 Grifcc
+ *
+ * GryFlux Framework - Simple Data Source (Example)
+ *************************************************************************************************************************/
+#pragma once
+
+#include "framework/data_source.h"
+#include "packet/simple_data_packet.h"
+
+/**
+ * @brief 简单数据源 - 示例实现
+ *
+ * 产生指定数量的简单数据包，每个包只设置 id。
+ * value 会在 InputNode 中初始化。
+ */
+class SimpleDataSource : public GryFlux::DataSource
+{
+public:
+    /**
+     * @brief 构造函数
+     *
+     * @param totalPackets 要产生的数据包总数
+     */
+    explicit SimpleDataSource(size_t totalPackets)
+        : totalPackets_(totalPackets), producedCount_(0)
+    {
+    }
+
+    std::unique_ptr<GryFlux::DataPacket> produce() override
+    {
+        auto packet = std::make_unique<SimpleDataPacket>();
+        packet->id = static_cast<int>(producedCount_);
+        // value 会在 InputNode 中初始化为 id
+
+        producedCount_++;
+        return packet;
+    }
+
+    bool hasMore() override
+    {
+        return producedCount_ < totalPackets_;
+    }
+
+private:
+    size_t totalPackets_;
+    size_t producedCount_;
+};

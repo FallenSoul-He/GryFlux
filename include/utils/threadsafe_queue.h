@@ -32,10 +32,20 @@ private:
 
 public:
     threadsafe_queue() {}
+
+    // 支持拷贝语义
     void push(const T &data)
     {
         std::unique_lock<std::mutex> lock(mutex_);
         queue_.push(data);
+        condition_.notify_one();
+    }
+
+    // 支持移动语义
+    void push(T &&data)
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        queue_.push(std::move(data));
         condition_.notify_one();
     }
 
@@ -45,17 +55,17 @@ public:
         std::unique_lock<std::mutex> lock(mutex_);
         condition_.wait(lock, [this]
                         { return !queue_.empty(); });
-        value = queue_.front();
+        value = std::move(queue_.front());
         queue_.pop();
     }
 
-    // 非阻塞获取数据
+    // 非阻塞获取数据（使用移动语义）
     bool try_pop(T &value)
     {
         std::unique_lock<std::mutex> lock(mutex_);
         if (queue_.empty())
             return false;
-        value = queue_.front();
+        value = std::move(queue_.front());
         queue_.pop();
         return true;
     }

@@ -1,23 +1,25 @@
-add_library(app_includes INTERFACE)
-
-target_include_directories(app_includes INTERFACE
-    ${CMAKE_CURRENT_SOURCE_DIR}/source
-    ${CMAKE_CURRENT_SOURCE_DIR}/sink
-    ${CMAKE_CURRENT_SOURCE_DIR}/tasks
-    ${CMAKE_CURRENT_SOURCE_DIR}/package
+# Simple Pipeline Example
+add_executable(simple_pipeline_example
+    simple_pipeline_example.cpp
+    # Context resources
+    context/simulated_npu_context.cpp
+    # Data packets
+    packet/simple_data_packet.cpp
+    # Task nodes
+    nodes/input/input_node.cpp
+    nodes/preprocess/preprocess_node.cpp
+    nodes/inference/inference_node.cpp
+    nodes/postprocess/postprocess_node.cpp
+    nodes/output/output_node.cpp
+    # Framework sources
+    ${SRC_DIR}
 )
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/package)
+# Add example directory as include path (allows #include "packet/xxx.h" style)
+target_include_directories(simple_pipeline_example PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/sink/test_consumer APP_SRC)
-aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/source/test_producer APP_SRC)
-aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/tasks/feature_extractor APP_SRC)
-aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/tasks/image_preprocess APP_SRC)
-aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/tasks/object_detector APP_SRC)
-aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/tasks/object_tracker APP_SRC)
-aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/tasks/res_sender APP_SRC)
+target_link_libraries(simple_pipeline_example
+    ${dynamic_libs}
+)
 
-add_executable(example_stream example_stream.cpp ${SRC_DIR} ${APP_SRC})
-
-target_link_libraries(example_stream ${app_includes} ${dynamic_libs} )
-install(TARGETS example_stream RUNTIME DESTINATION ./)
+install(TARGETS simple_pipeline_example DESTINATION bin)

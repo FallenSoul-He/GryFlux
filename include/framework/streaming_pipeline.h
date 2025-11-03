@@ -1,154 +1,114 @@
 /*************************************************************************************************************************
  * Copyright 2025 Grifcc
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
- * permit persons to whom the Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
- * Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
- * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * GryFlux Framework - Streaming Pipeline
  *************************************************************************************************************************/
-#pragma once
+#ifndef GRYFLUX_STREAMING_PIPELINE_H
+#define GRYFLUX_STREAMING_PIPELINE_H
 
-#include <atomic>
-#include <cstdint>
-#include <chrono>
-#include <functional>
+#include "data_source.h"
+#include "data_consumer.h"
+#include "async_graph_processor.h"
+#include "graph_template.h"
+#include "resource_pool.h"
 #include <memory>
-#include <mutex>
-#include <string>
 #include <thread>
-#include <unordered_map>
-#include <vector>
-
-#include "framework/pipeline_builder.h"
-#include "framework/pipeline_builder_pool.h"
-#include "framework/pipeline_instance.h"
-#include "utils/threadsafe_queue.h"
+#include <atomic>
 
 namespace GryFlux
 {
 
-    // 流式处理管道，用于处理持续输入的数据
-    class StreamingPipeline
-    {
-    public:
-        using ProcessorFunction = std::function<void(std::shared_ptr<PipelineBuilder>,
-                                                     std::shared_ptr<DataObject>,
-                                                     const std::string &)>;
+/**
+ * @brief 流式处理管道 - Source → Graph → Consumer
+ *
+ * 封装完整的流式处理流程：
+ * - Source: 持续产生数据
+ * - Graph: 处理数据（通过 AsyncGraphProcessor）
+ * - Consumer: 消费结果
+ *
+ * 自动管理：
+ * - 生产者线程
+ * - 消费者线程
+ * - 背压控制（防止内存爆炸）
+ * - 线程生命周期
+ *
+ * @example
+ * @code
+ * auto source = std::make_shared<VideoSource>("input.mp4");
+ * auto consumer = std::make_shared<VideoWriter>("output.mp4");
+ *
+ * StreamingPipeline pipeline(source, graphTemplate, resourcePool, consumer);
+ * pipeline.run();  // 阻塞直到处理完成
+ * @endcode
+ */
+class StreamingPipeline
+{
+public:
+    /**
+     * @brief 构造函数
+     *
+     * @param source 数据源
+     * @param graphTemplate 图模板
+     * @param resourcePool 资源池
+     * @param consumer 数据消费者
+     * @param threadPoolSize 线程池大小（0表示自动）
+     * @param maxActivePackets 最大活跃数据包数（0表示自动：threadPoolSize × 2）
+     */
+    StreamingPipeline(std::shared_ptr<DataSource> source,
+                      std::shared_ptr<GraphTemplate> graphTemplate,
+                      std::shared_ptr<ResourcePool> resourcePool,
+                      std::shared_ptr<DataConsumer> consumer,
+                      size_t threadPoolSize = 0,
+                      size_t maxActivePackets = 0);
 
-        StreamingPipeline(size_t workerCount = 0,
-                          size_t schedulerThreadCount = 0,
-                          size_t queueSize = 100);
-        ~StreamingPipeline();
+    ~StreamingPipeline();
 
-        // 启动流式处理
-        void start();
+    // 禁止拷贝和移动
+    StreamingPipeline(const StreamingPipeline &) = delete;
+    StreamingPipeline &operator=(const StreamingPipeline &) = delete;
+    StreamingPipeline(StreamingPipeline &&) = delete;
+    StreamingPipeline &operator=(StreamingPipeline &&) = delete;
 
-        // 停止流式处理
-        void stop();
+    /**
+     * @brief 运行管道（阻塞直到完成）
+     *
+     * 启动生产者和消费者线程，处理所有数据直到 Source 耗尽。
+     */
+    void run();
 
-        // 设置处理函数
-        void setProcessor(ProcessorFunction processor);
+    /**
+     * @brief 停止管道
+     *
+     * 停止生产和消费，等待当前数据包处理完成。
+     */
+    void stop();
 
-        // 添加输入数据
-        bool addInput(std::shared_ptr<DataObject> data);
+private:
+    /**
+     * @brief 生产者线程函数
+     *
+     * 从 Source 获取数据，提交到 processor，带背压控制。
+     */
+    void producerThread();
 
-        // 尝试获取输出，非阻塞
-        bool tryGetOutput(std::shared_ptr<DataObject> &output);
+    /**
+     * @brief 消费者线程函数
+     *
+     * 从 processor 获取结果，提交到 Consumer。
+     */
+    void consumerThread();
 
-        // 获取输出，阻塞直到有输出或流关闭
-        void getOutput(std::shared_ptr<DataObject> &output);
+    std::shared_ptr<DataSource> source_;
+    std::shared_ptr<DataConsumer> consumer_;
+    std::shared_ptr<AsyncGraphProcessor> processor_;
 
-        // 设置输出节点ID
-        void setOutputNodeId(const std::string &outputId);
+    std::thread producerThread_;
+    std::thread consumerThread_;
 
-        // 检查输入队列是否为空
-        bool inputEmpty() const;
-
-        // 检查输出队列是否为空
-        bool outputEmpty() const;
-
-        // 获取输入队列大小
-        size_t inputSize() const;
-
-        // 获取输出队列大小
-        size_t outputSize() const;
-
-        // 获取已处理的项目数量
-        size_t getProcessedItemCount() const;
-
-        // 获取处理错误数量
-        size_t getErrorCount() const;
-
-        // 检查管道是否正在运行
-        bool isRunning() const;
-
-        // 检查输入是否活跃
-        bool isInputActive() const { return input_active_.load(); }
-
-        // 检查输出是否活跃
-        bool isOutputActive() const { return output_active_.load(); }
-
-        // 设置是否启用性能分析
-        void enableProfiling(bool enable) { profilingEnabled_ = enable; }
-
-        // 获取性能分析状态
-        bool isProfilingEnabled() const { return profilingEnabled_; }
-
-        // 配置内部调度线程池大小
-        void setSchedulerThreadCount(size_t threadCount);
-        size_t getSchedulerThreadCount() const { return schedulerThreadCount_; }
-
-    private:
-        void processingLoop(size_t workerIndex);
-        void launchWorkers();
-        void joinWorkers();
-
-        using DataObjectQueue = std::shared_ptr<threadsafe_queue<std::shared_ptr<DataObject>>>;
-        DataObjectQueue inputQueue_;
-        std::atomic<bool> input_active_;
-        DataObjectQueue outputQueue_;
-        std::atomic<bool> output_active_;
-
-        ProcessorFunction processor_;
-        std::string outputNodeId_;
-        std::thread processingThread_;
-        std::atomic<bool> running_;
-        size_t queueMaxSize_;
-        size_t workerCount_;
-        size_t schedulerThreadCount_;
-
-        std::vector<std::thread> processingWorkers_;
-
-        mutable std::mutex statsMutex_;
-
-        std::vector<std::shared_ptr<PipelineInstance>> workerInstances_;
-
-        std::unique_ptr<PipelineBuilderPool> builderPool_;
-
-        // 统计信息
-        std::atomic<size_t> processedItems_;
-        std::atomic<size_t> errorCount_;
-        double totalProcessingTime_; // 单位：毫秒
-
-        std::unordered_map<size_t, double> workerTotalProcessingTime_;
-        std::unordered_map<size_t, size_t> workerProcessedItems_;
-        std::unordered_map<size_t, std::unordered_map<std::string, std::pair<double, size_t>>> workerTaskStats_;
-
-        // 是否启用性能分析
-        bool profilingEnabled_ = false;
-
-        // 用于存储同名任务的统计数据: <任务名称, <总执行时间, 执行次数>>
-        std::unordered_map<std::string, std::pair<double, size_t>> taskStats_;
-
-        std::chrono::time_point<std::chrono::high_resolution_clock> startTime_;
-    };
+    std::atomic<bool> running_;
+    std::atomic<bool> producerDone_;
+};
 
 } // namespace GryFlux
+
+#endif // GRYFLUX_STREAMING_PIPELINE_H
