@@ -57,6 +57,12 @@ set(dynamic_libs
   project_includes
 )
 
+# Link filesystem library for GCC < 9
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0)
+    list(APPEND dynamic_libs stdc++fs)
+    message(STATUS "Adding stdc++fs library for GCC ${CMAKE_CXX_COMPILER_VERSION}")
+endif()
+
 # Source files collection
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/common SRC_DIR)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/framework SRC_DIR)

@@ -1,769 +1,629 @@
-# 📊 GryFlux 流式处理框架指南
+# GryFlux Framework
 
-<div align="center">
-  <img src="https://img.shields.io/badge/版本-1.0-blue.svg" alt="版本">
-  <img src="https://img.shields.io/badge/语言-C++-orange.svg" alt="语言">
-  <img src="https://img.shields.io/badge/许可证-MIT-green.svg" alt="许可证">
-</div>
+**高性能、事件驱动的异步 DAG 处理框架**
 
-<div align="center">
-  <p><i>高性能数据流处理系统 - 为连续数据流应用提供强大支持</i></p>
-</div>
+GryFlux 是一个专为嵌入式 AI 推理和实时数据处理设计的 C++ 框架，提供自动并行调度、硬件资源管理和流式处理能力。
 
 ---
 
-## 📑 目录
+## ✨ 核心特性
 
-- [1. 流式处理框架概述](#1-流式处理框架概述)
-- [2. 架构组件](#2-架构组件)
-- [3. 使用指南](#3-使用指南)
-- [4. 计算图构建详解](#4-计算图构建详解)
-- [5. 性能分析与优化](#5-性能分析与优化)
-- [6. 示例应用](#6-示例应用)
-- [7. 故障排除](#7-故障排除)
-- [8. 总结](#8-总结)
-
----
-
-## 1. 框架概述
-
-GryFlux 流式处理框架是一个基于任务图的高性能数据处理系统，特别适用于需要连续处理数据流的场景，如视频分析、传感器数据处理等。它提供了一个灵活的架构，允许开发者构建高效的数据处理流水线。
-
-### 1.1 核心特点
-
-<div align="center">
-<table>
-  <tr>
-    <th align="center" width="250">特点</th>
-    <th align="center">说明</th>
-  </tr>
-  <tr>
-    <td align="center"><b>🧩 基于任务的模块化设计</b></td>
-    <td>将复杂的处理逻辑分解为可重用的任务模块</td>
-  </tr>
-  <tr>
-    <td align="center"><b>⚡ 并行处理能力</b></td>
-    <td>利用线程池实现任务并行执行</td>
-  </tr>
-  <tr>
-    <td align="center"><b>🔄 生产者-消费者模式</b></td>
-    <td>支持异步数据流处理</td>
-  </tr>
-  <tr>
-    <td align="center"><b>📊 性能分析工具</b></td>
-    <td>内置执行时间统计和性能监控</td>
-  </tr>
-  <tr>
-    <td align="center"><b>🔗 任务依赖管理</b></td>
-    <td>自动处理任务之间的依赖关系</td>
-  </tr>
-</table>
-</div>
+- 🚀 **真正的并行执行** - DAG 节点自动并行调度，无需手动管理线程
+- 🔄 **事件驱动调度** - 节点完成立即触发后继节点，零等待
+- 💎 **硬件资源管理** - 自动控制 NPU/GPU 并发度，防止资源竞争
+- 🌊 **流式处理支持** - AsyncPipeline 封装 Source → Graph → Consumer 模式
+- 🎯 **背压控制** - 自动限制活跃数据包数量，防止内存爆炸
+- 📊 **图模板复用** - 构建一次，处理无限数据包
+- ⚡ **零拷贝设计** - 智能指针管理，避免不必要的内存分配
+- 🔍 **易于调试** - 完整的日志输出和状态追踪
 
 ---
 
-## 2. 架构组件
+## 🏗️ 架构概览
 
-### 2.1 核心组件
+### 核心组件
 
-<div align="center">
-<table>
-  <tr>
-    <th align="center" width="250">组件</th>
-    <th align="center">功能描述</th>
-  </tr>
-  <tr>
-    <td align="center"><b>🌊 StreamingPipeline</b></td>
-    <td>流式处理管道，管理数据流和任务执行</td>
-  </tr>
-  <tr>
-    <td align="center"><b>🏗️ PipelineBuilder</b></td>
-    <td>构建和执行任务图</td>
-  </tr>
-  <tr>
-    <td align="center"><b>⏱️ TaskScheduler</b></td>
-    <td>调度和执行任务</td>
-  </tr>
-  <tr>
-    <td align="center"><b>📍 TaskNode</b></td>
-    <td>表示任务图中的一个节点</td>
-  </tr>
-  <tr>
-    <td align="center"><b>🧵 ThreadPool</b></td>
-    <td>管理工作线程</td>
-  </tr>
-  <tr>
-    <td align="center"><b>🏭 DataProducer/DataConsumer</b></td>
-    <td>数据生产者和消费者接口</td>
-  </tr>
-  <tr>
-    <td align="center"><b>📋 TaskRegistry</b></td>
-    <td>管理和注册处理任务</td>
-  </tr>
-</table>
-</div>
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      AsyncPipeline                          │
+│  ┌──────────┐      ┌──────────────────┐      ┌──────────┐  │
+│  │  Source  │ ───> │ AsyncGraphProc.  │ ───> │ Consumer │  │
+│  └──────────┘      └──────────────────┘      └──────────┘  │
+│                            │                                │
+│                            ▼                                │
+│                    ┌──────────────┐                         │
+│                    │ GraphTemplate│                         │
+│                    └──────────────┘                         │
+│                            │                                │
+│                   ┌────────┴────────┐                       │
+│                   ▼                 ▼                       │
+│            ┌──────────┐      ┌─────────────┐               │
+│            │  Nodes   │      │ResourcePool │               │
+│            └──────────┘      └─────────────┘               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 1. **GraphTemplate** - DAG 图模板
+定义节点的执行顺序和依赖关系，支持任意复杂的 DAG 结构。
+
+#### 2. **AsyncGraphProcessor** - 异步图处理器
+基于事件驱动的调度引擎，自动并行执行 DAG 节点。
+
+#### 3. **ResourcePool** - 硬件资源池
+管理 NPU/GPU 等硬件资源，自动控制并发度。
+
+#### 4. **AsyncPipeline** - 异步管道
+封装 Source → Graph → Consumer 模式，自动管理生产者和消费者线程。
 
 ---
 
-## 3. 使用指南
+## 🚦 快速开始
 
-### 3.1 创建流式处理应用
-
-以下是创建基本流式处理应用的步骤：
-
-#### 1. 初始化任务注册表
+### 示例：并行 DAG 处理
 
 ```cpp
-// 创建任务注册表实例
-GryFlux::TaskRegistry taskRegistry;
+#include "framework/async_pipeline.h"
+#include "framework/template_builder.h"
+
+// 1. 定义数据包
+struct MyDataPacket : public GryFlux::DataPacket {
+    int id;
+    std::vector<float> rawData;
+    std::vector<float> result;
+};
+
+// 2. 定义节点
+class InputNode : public GryFlux::NodeBase {
+    void execute(DataPacket &packet, Context &ctx) override {
+        auto &p = static_cast<MyDataPacket &>(packet);
+        p.rawData.resize(256);
+        // 初始化数据...
+    }
+};
+
+class ProcessNode : public GryFlux::NodeBase {
+    void execute(DataPacket &packet, Context &ctx) override {
+        auto &p = static_cast<MyDataPacket &>(packet);
+        // 处理数据...
+    }
+};
+
+// 3. 构建 DAG
+auto graphTemplate = GryFlux::GraphTemplate::buildOnce(
+    [](GryFlux::TemplateBuilder *builder) {
+        builder->setInputNode<InputNode>("input");
+        builder->addTask<ProcessNode>("process", "", {"input"});
+        builder->setOutputNode<OutputNode>("output", {"process"});
+    }
+);
+
+// 4. 创建资源池（如果需要硬件资源）
+auto resourcePool = std::make_shared<GryFlux::ResourcePool>();
+resourcePool->registerResourceType("npu", {
+    std::make_shared<NPUContext>(0),
+    std::make_shared<NPUContext>(1)
+});
+
+// 5. 创建流式管道
+auto source = std::make_shared<MyDataSource>();
+auto consumer = std::make_shared<MyDataConsumer>();
+
+GryFlux::AsyncPipeline pipeline(
+    source,
+    graphTemplate,
+    resourcePool,
+    consumer,
+    8  // 线程池大小
+);
+
+// 6. 运行
+pipeline.run();  // 阻塞直到所有数据处理完成
 ```
 
-#### 2. 注册处理任务
+---
 
+## 📖 核心概念
+
+### 1. DataPacket - 数据包
+
+数据包是流经 DAG 的数据载体。
+
+**设计原则**：
+- ✅ **并行节点写入不同字段** - 避免数据竞争
+- ✅ **预分配内存** - 避免运行时 malloc
+- ✅ **继承 DataPacket 基类** - 框架统一管理
+
+**示例**：
 ```cpp
-// 注册各种处理任务
-taskRegistry.registerTask<GryFlux::ObjectDetector>("objectDetection");
-taskRegistry.registerTask<GryFlux::XfeatExtractor>("objectTracking");
-// 更多任务...
+struct VideoPacket : public GryFlux::DataPacket {
+    int frameId;
+
+    // 各节点的输出字段（避免并行节点冲突）
+    cv::Mat rawImage;              // Input 节点
+    cv::Mat preprocessedImage;     // Preprocess 节点 (并行分支1)
+    std::vector<Box> detections;   // Detection 节点 (并行分支2, NPU)
+    std::vector<Feature> features; // FeatureExtract 节点
+    std::vector<Track> tracks;     // Tracker 节点（融合结果）
+};
 ```
 
-#### 3. 创建流式处理管道
+### 2. NodeBase - 节点基类
 
+所有处理节点都继承 `NodeBase`，实现 `execute()` 方法。
+
+**示例**：
 ```cpp
-// 创建处理管道，指定线程数
-GryFlux::StreamingPipeline pipeline(10); // 使用10个线程
+class ObjectDetectionNode : public GryFlux::NodeBase {
+public:
+    void execute(GryFlux::DataPacket &packet, GryFlux::Context &ctx) override {
+        auto &p = static_cast<VideoPacket &>(packet);
+        auto &npu = static_cast<NPUContext &>(ctx);
+
+        // NPU 操作流程
+        npu.copyToDevice(p.preprocessedImage);
+        npu.runInference();
+        p.detections = npu.copyFromDevice();
+    }
+};
 ```
 
-#### 4. 设置输出节点 ID
+### 3. Context - 硬件资源上下文
 
+封装硬件设备（NPU/GPU/DSP）的操作接口。
+
+**示例**：
 ```cpp
-// 设置输出节点标识符
-pipeline.setOutputNodeId("output");
+class NPUContext : public GryFlux::Context {
+private:
+    int deviceId_;
+    void *deviceMemory_;
+
+public:
+    void copyToDevice(const cv::Mat &image);
+    void runInference();
+    std::vector<Box> copyFromDevice();
+};
 ```
 
-#### 5. 定义计算图构建函数
+### 4. GraphTemplate - DAG 图模板
 
+定义节点的执行顺序和依赖关系。
+
+**并行节点示例**：
 ```cpp
-void buildStreamingComputeGraph(std::shared_ptr<GryFlux::PipelineBuilder> builder,
-                                std::shared_ptr<GryFlux::DataObject> input,
-                                const std::string &outputId,
-                                GryFlux::TaskRegistry &taskRegistry)
-{
-    // 输入节点
-    auto inputNode = builder->addInput("input", input);
+auto template = GryFlux::GraphTemplate::buildOnce([](auto *builder) {
+    builder->setInputNode<InputNode>("input");
 
-    // 构建任务节点
-    auto task1Node = builder->addTask("task1",
-                                      taskRegistry.getProcessFunction("task1"),
-                                      {inputNode});
+    // 并行分支 1
+    builder->addTask<PreprocessNode>("preprocess", "", {"input"});
 
-    // 更多任务节点...
+    // 并行分支 2 (与 preprocess 并行执行)
+    builder->addTask<DetectionNode>("detection", "npu", {"input"});
 
-    // 输出节点
-    builder->addTask(outputId,
-                     taskRegistry.getProcessFunction("output"),
-                     {task1Node, /* 其他输入... */});
-}
-```
-
-#### 6. 设置计算图
-
-```cpp
-// 设置处理器函数
-pipeline.setProcessor([&taskRegistry](std::shared_ptr<GryFlux::PipelineBuilder> builder,
-                                      std::shared_ptr<GryFlux::DataObject> input,
-                                      const std::string &outputId)
-{
-    buildStreamingComputeGraph(builder, input, outputId, taskRegistry);
+    // 融合节点（等待两个分支完成）
+    builder->setOutputNode<TrackerNode>("tracker", {"preprocess", "detection"});
 });
 ```
 
-#### 7. 启动管道处理
+### 5. ResourcePool - 资源池
 
+管理硬件资源的分配和回收。
+
+**特性**：
+- ✅ 自动控制并发度（如只有 2 个 NPU，最多 2 个任务并行）
+- ✅ 负载均衡（自动选择空闲资源）
+- ✅ RAII 管理（自动释放资源）
+
+**示例**：
 ```cpp
-// 启动处理管道
-pipeline.start();
+auto pool = std::make_shared<GryFlux::ResourcePool>();
+
+// 注册 NPU 资源
+pool->registerResourceType("npu", {
+    std::make_shared<NPUContext>(0),
+    std::make_shared<NPUContext>(1)
+});
+
+// 注册 GPU 资源
+pool->registerResourceType("gpu", {
+    std::make_shared<GPUContext>(0)
+});
 ```
 
-#### 8. 创建数据生产者和消费者
+### 6. AsyncPipeline - 异步管道
 
+封装 Source → Graph → Consumer 模式。
+
+**自动管理**：
+- ✅ 生产者线程（从 Source 获取数据）
+- ✅ 消费者线程（将结果发送到 Consumer）
+- ✅ 背压控制（防止内存爆炸）
+- ✅ 线程生命周期（优雅启动和关闭）
+
+**DataSource 接口**：
 ```cpp
-// 创建控制变量和数据处理组件
-std::atomic<bool> running(true);
-GryFlux::TestImageProducer producer(pipeline, running);
-GryFlux::TestConsumer consumer(pipeline, running);
-
-// 启动生产者和消费者
-producer.start();
-consumer.start();
-```
-
-#### 9. 等待处理完成并清理资源
-
-```cpp
-// 等待处理完成
-producer.join();
-consumer.join();
-pipeline.stop();
-```
-
-### 3.2 实现自定义处理任务
-
-创建自定义处理任务需要继承 ProcessingTask 类：
-
-```cpp
-class MyCustomTask : public GryFlux::ProcessingTask
-{
+class MyDataSource : public GryFlux::DataSource {
 public:
-    MyCustomTask() {}
-
-    virtual std::shared_ptr<GryFlux::DataObject> process(
-        const std::vector<std::shared_ptr<GryFlux::DataObject>> &inputs) override
-    {
-        // 处理输入数据
-        // ...
-
-        // 返回处理结果
-        return std::make_shared<GryFlux::DataObject>();
-    }
-};
-
-// 注册自定义任务
-taskRegistry.registerTask<MyCustomTask>("myCustomTask");
-```
-
-### 3.3 实现自定义数据生产者
-
-实现自定义数据生产者需要继承`DataProducer`类：
-
-```cpp
-class MyDataProducer : public GryFlux::DataProducer
-{
-public:
-    MyDataProducer(GryFlux::StreamingPipeline& pipeline, std::atomic<bool>& running, Allocator *allocator)
-        : DataProducer(pipeline, running, allocator) {}
-
-protected:
-    void run() override {
-        while (running.load()) {
-            // 创建或获取数据
-            auto data = createData();
-
-            // 添加到管道
-            if (!addData(data)) {
-                break;
-            }
-
-            // 控制生产速率
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
+    std::unique_ptr<DataPacket> produce() override {
+        auto packet = std::make_unique<MyDataPacket>();
+        // 填充数据...
+        return packet;
     }
 
-    std::shared_ptr<GryFlux::DataObject> createData() {
-        // 创建数据对象
-        return std::make_shared<GryFlux::DataObject>();
+    bool hasMore() override {
+        return !dataSource.eof();
     }
 };
 ```
 
-### 3.4 实现自定义数据消费者
-
-实现自定义数据消费者需要继承`DataConsumer`类：
-
+**DataConsumer 接口**：
 ```cpp
-class MyDataConsumer : public GryFlux::DataConsumer
-{
+class MyDataConsumer : public GryFlux::DataConsumer {
 public:
-    MyDataConsumer(GryFlux::StreamingPipeline& pipeline, std::atomic<bool>& running, Allocator *allocator)
-        : DataConsumer(pipeline, running, allocator), processedFrames_(0) {}
-
-    int getProcessedFrames() const { return processedFrames_; }
-
-protected:
-    void run() override {
-        while (shouldContinue()) {
-            std::shared_ptr<GryFlux::DataObject> data;
-
-            // 尝试获取处理结果
-            if (getData(data)) {
-                // 处理输出数据
-                processData(data);
-                processedFrames_++;
-            } else {
-                // 避免CPU空转
-                std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            }
-        }
+    void consume(std::unique_ptr<DataPacket> packet) override {
+        auto &p = static_cast<MyDataPacket &>(*packet);
+        // 处理结果...
     }
-
-    void processData(std::shared_ptr<GryFlux::DataObject> data) {
-        // 处理输出数据
-    }
-
-private:
-    int processedFrames_;
 };
 ```
 
 ---
 
-## 4. 计算图构建详解
+## 🎯 核心设计模式
 
-### 4.1 计算图概念
+### 1. 并行节点设计 - 避免数据竞争
 
-<div align="center">
-  <p>
-    <img src="./docs/resource/dag.svg" alt="计算图示例" width="500">
-  </p>
-  <p><i>计算图是一个有向无环图(DAG)，其中节点代表计算任务，边表示数据依赖关系</i></p>
-</div>
-
-在流式处理框架中，`PipelineBuilder`类负责构建和管理这个计算图，而 `TaskScheduler` 则负责根据依赖关系执行任务。
-
-### 4.2 PipelineBuilder API 详解
-
-PipelineBuilder 类提供了两个关键方法用于构建计算图：
-
-#### 4.2.1 addInput 方法
-
+❌ **错误示例**：
 ```cpp
-std::shared_ptr<TaskNode> addInput(const std::string &id, std::shared_ptr<DataObject> data);
+struct BadPacket {
+    double value;  // ❌ 多个并行节点同时写入
+};
+
+void NodeA() { packet.value *= 2; }     // 并行执行
+void NodeB() { packet.value += 10; }    // 并行执行
+// 结果不确定！
 ```
 
-<div align="center">
-<table>
-  <tr>
-    <th align="center" width="150">参数</th>
-    <th align="center">说明</th>
-  </tr>
-  <tr>
-    <td align="center"><code>id</code></td>
-    <td>输入节点的唯一标识符</td>
-  </tr>
-  <tr>
-    <td align="center"><code>data</code></td>
-    <td>输入数据对象</td>
-  </tr>
-  <tr>
-    <td align="center"><b>返回值</b></td>
-    <td>创建的输入节点，可被后续任务引用</td>
-  </tr>
-  <tr>
-    <td align="center"><b>作用</b></td>
-    <td>创建一个输入节点，作为计算图的数据源</td>
-  </tr>
-</table>
-</div>
-
-#### 4.2.2 addTask 方法
-
+✅ **正确设计**：
 ```cpp
-std::shared_ptr<TaskNode> addTask(
-    const std::string &id,
-    std::function<std::shared_ptr<DataObject>(const std::vector<std::shared_ptr<DataObject>> &)> func,
-    const std::vector<std::shared_ptr<TaskNode>> &inputs);
+struct GoodPacket {
+    double input;
+    double resultA;  // NodeA 独占
+    double resultB;  // NodeB 独占
+    double output;   // Fusion 节点写入
+};
+
+void NodeA() { packet.resultA = packet.input * 2; }
+void NodeB() { packet.resultB = packet.input + 10; }
+void Fusion() { packet.output = packet.resultA + packet.resultB; }
 ```
 
-<div align="center">
-<table>
-  <tr>
-    <th align="center" width="150">参数</th>
-    <th align="center">说明</th>
-  </tr>
-  <tr>
-    <td align="center"><code>id</code></td>
-    <td>
-      <p><b>任务节点的唯一标识符，用于在计算图中引用该任务</b></p>
-      <ul>
-        <li>每个任务必须有唯一的 ID</li>
-        <li>输出节点的 ID 应与 setOutputNodeId 设置的 ID 相匹配</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td align="center"><code>func</code></td>
-    <td>
-      <p><b>处理函数，接受一组输入数据对象，返回一个输出数据对象</b></p>
-      <ul>
-        <li>函数签名：std::shared_ptr&lt;DataObject&gt;(const std::vector&lt;std::shared_ptr&lt;DataObject&gt;&gt; &)</li>
-        <li>通常通过 TaskRegistry.getProcessFunction()获取注册的处理函数</li>
-        <li>也可以使用 lambda 表达式定义内联处理逻辑</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td align="center"><code>inputs</code></td>
-    <td>
-      <p><b>该任务的输入节点列表</b></p>
-      <ul>
-        <li>可以是输入节点(addInput 的返回值)或其他任务节点(addTask 的返回值)</li>
-        <li>列表顺序决定了输入数据在处理函数中的索引顺序</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td align="center"><b>返回值</b></td>
-    <td>创建的任务节点，可被后续任务引用作为输入</td>
-  </tr>
-  <tr>
-    <td align="center"><b>作用</b></td>
-    <td>创建一个处理任务节点，并定义其与其他节点的依赖关系</td>
-  </tr>
-</table>
-</div>
+### 2. 硬件资源三步法 - NPU/GPU 操作
 
-### 4.3 构建复杂计算图示例
-
-以下是一个构建复杂计算图的详细示例：
-
+真实的硬件操作流程：
 ```cpp
-void buildAdvancedComputeGraph(std::shared_ptr<GryFlux::PipelineBuilder> builder,
-                             std::shared_ptr<GryFlux::DataObject> input,
-                             const std::string &outputId,
-                             GryFlux::TaskRegistry &taskRegistry)
-{
-    // 创建输入节点
-    auto inputNode = builder->addInput("input", input);
+void HardwareNode::execute(DataPacket &packet, Context &ctx) {
+    auto &npu = static_cast<NPUContext &>(ctx);
 
-    // 分支1：预处理 -> 特征提取
-    auto preprocessNode = builder->addTask("preprocess",
-                                         taskRegistry.getProcessFunction("imagePreprocess"),
-                                         {inputNode});
+    // 步骤 1: Host → Device (DMA 传输)
+    npu.copyToDevice(inputData);
 
-    auto featureNode = builder->addTask("featureExtract",
-                                       taskRegistry.getProcessFunction("featureExtraction"),
-                                       {preprocessNode});
+    // 步骤 2: Device 计算
+    npu.runCompute();
 
-    // 分支2：对象检测
-    auto detectionNode = builder->addTask("objectDetection",
-                                         taskRegistry.getProcessFunction("yoloDetector"),
-                                         {inputNode});
-
-    // 结合两个分支的结果进行对象跟踪
-    auto trackingNode = builder->addTask("objectTracking",
-                                        taskRegistry.getProcessFunction("tracker"),
-                                        {featureNode, detectionNode});
-
-    // 内联处理函数示例（使用lambda）
-    auto statisticsNode = builder->addTask("statistics",
-        [](const std::vector<std::shared_ptr<GryFlux::DataObject>> &inputs) -> std::shared_ptr<GryFlux::DataObject> {
-            auto trackingResult = inputs[0];
-            // 计算统计数据
-            auto stats = std::make_shared<GryFlux::DataObject>();
-            // ... 处理逻辑
-            return stats;
-        },
-        {trackingNode});
-
-    // 多输入节点示例
-    auto visualizationNode = builder->addTask("visualization",
-                                             taskRegistry.getProcessFunction("visualize"),
-                                             {inputNode, detectionNode, trackingNode});
-
-    // 最终输出节点（合并多个结果）
-    builder->addTask(outputId,
-                    taskRegistry.getProcessFunction("resultAggregator"),
-                    {trackingNode, statisticsNode, visualizationNode});
+    // 步骤 3: Device → Host (DMA 传输)
+    outputData = npu.copyFromDevice();
 }
 ```
 
-<div align="center">
-  <p>
-    <img src="./docs/resource/example_graph.svg" alt="复杂计算图示例" width="600">
-  </p>
-  <p><i>复杂计算图示例可视化</i></p>
-</div>
+### 3. 背压控制 - 防止内存爆炸
 
-### 4.4 addTask 高级用法
-
-#### 4.4.1 处理多输入任务
-
+AsyncPipeline 自动控制活跃数据包数量：
 ```cpp
-// 三输入示例：融合RGB图像、深度图和热成像数据
-auto fusionNode = builder->addTask("sensorFusion",
-                                  taskRegistry.getProcessFunction("multiModalFusion"),
-                                  {rgbNode, depthNode, thermalNode});
+// maxActivePackets = threadPoolSize × 2 (默认)
+AsyncPipeline pipeline(source, template, pool, consumer, 8);
+// 最多 16 个数据包同时在处理
+
+// 自定义背压控制
+AsyncPipeline pipeline(source, template, pool, consumer, 8, 32);
+// 最多 32 个数据包同时在处理
 ```
-
-#### 4.4.2 重用中间结果
-
-```cpp
-// 同一节点被多个后续任务使用
-auto featureNode = builder->addTask("features", featureExtractor, {inputNode});
-
-auto classifierNode = builder->addTask("classifier", classifier, {featureNode});
-auto segmentationNode = builder->addTask("segmentation", segmentor, {featureNode});
-auto keypointNode = builder->addTask("keypoints", keypointDetector, {featureNode});
-```
-
-#### 4.4.3 实现条件分支（静态）
-
-```cpp
-// 在构建时决定使用哪个模型
-std::shared_ptr<TaskNode> detectorNode;
-if (useHighAccuracyModel) {
-    detectorNode = builder->addTask("detectorHQ", hqDetector, {inputNode});
-} else {
-    detectorNode = builder->addTask("detectorFast", fastDetector, {inputNode});
-}
-```
-
-### 4.5 计算图构建最佳实践
-
-<div class="best-practices">
-  <div align="center">
-    <table>
-      <tr>
-        <th align="center" width="50">🔢</th>
-        <th align="center" width="200">最佳实践</th>
-        <th align="center">说明</th>
-      </tr>
-      <tr>
-        <td align="center">1</td>
-        <td align="center"><b>保持任务粒度适中</b></td>
-        <td>
-          <ul>
-            <li>过细的粒度会增加调度开销</li>
-            <li>过粗的粒度会减少并行性</li>
-          </ul>
-        </td>
-      </tr>
-      <tr>
-        <td align="center">2</td>
-        <td align="center"><b>管理依赖关系</b></td>
-        <td>
-          <ul>
-            <li>避免创建循环依赖（框架不支持）</li>
-            <li>尽量减少任务之间的不必要依赖</li>
-          </ul>
-        </td>
-      </tr>
-      <tr>
-        <td align="center">3</td>
-        <td align="center"><b>任务命名约定</b></td>
-        <td>
-          <ul>
-            <li>使用清晰、有意义的 ID</li>
-            <li>使用命名模式表示相关任务（如 image_preprocess、image_crop）</li>
-          </ul>
-        </td>
-      </tr>
-      <tr>
-        <td align="center">4</td>
-        <td align="center"><b>重用计算结果</b></td>
-        <td>
-          <ul>
-            <li>将共享的预处理或特征提取步骤作为单独的任务</li>
-            <li>多个后续任务可共享同一个前置任务的结果</li>
-          </ul>
-        </td>
-      </tr>
-      <tr>
-        <td align="center">5</td>
-        <td align="center"><b>错误处理</b></td>
-        <td>
-          <ul>
-            <li>在处理函数中妥善处理异常</li>
-            <li>对于可能失败的操作，返回适当的错误状态而非抛出异常</li>
-          </ul>
-        </td>
-      </tr>
-      <tr>
-        <td align="center">6</td>
-        <td align="center"><b>性能优化</b></td>
-        <td>
-          <ul>
-            <li>将计算密集型任务拆分为多个并行任务</li>
-            <li>使用性能分析工具识别瓶颈任务</li>
-          </ul>
-        </td>
-      </tr>
-    </table>
-  </div>
-</div>
 
 ---
 
-## 5. 性能分析与优化
+## 📊 性能特性
 
-### 5.1 启用性能分析
+### 并行调度
 
-框架内置性能分析功能，可以跟踪任务执行时间和处理吞吐量:
+**自动并行度**：
+- CPU 节点：多核并行（受线程池大小限制）
+- NPU 节点：受硬件资源数量限制（如 2 个 NPU 最多 2 个任务并行）
+- 并行分支：DAG 拓扑自动识别可并行节点
 
-```cpp
-// 启用性能分析
-pipeline.enableProfiling(true);
+**实测性能** (示例)：
+```
+配置：8 线程池 + 2 个 NPU
+数据包：100 个
+吞吐量：182 packets/sec
+平均延迟：5.5 ms/packet
 ```
 
-启用性能分析后，框架将收集并输出以下信息:
+### 内存管理
 
-- 总处理项目数
-- 每个任务的执行时间
-- 平均处理时间
-- 处理速率
+- ✅ **图模板复用** - 构建一次，处理无限数据包
+- ✅ **智能指针** - unique_ptr 自动管理生命周期
+- ✅ **预分配** - DataPacket 构造时预分配中间结果
+- ✅ **零拷贝** - 指针传递，避免不必要的拷贝
 
-### 5.2 性能优化建议
+### 调度开销
 
-<div align="center">
-<table>
-  <tr style="background-color: #4CAF50; color: white; text-align: center;">
-    <th align="center" width="150">优化方向</th>
-    <th align="center" width="300">具体建议</th>
-    <th align="center">预期效果</th>
-  </tr>
-  <tr>
-    <td align="center"><b>🧵 线程管理</b></td>
-    <td>根据系统CPU核心数和工作负载调整线程数</td>
-    <td>平衡资源利用和上下文切换开销</td>
-  </tr>
-  <tr>
-    <td align="center"><b>🧩 任务粒度</b></td>
-    <td>避免过细或过粗的任务划分，寻找最佳平衡点</td>
-    <td>提高并行效率，减少调度开销</td>
-  </tr>
-  <tr>
-    <td align="center"><b>📦 数据传输</b></td>
-    <td>尽可能使用数据引用和智能指针，减少拷贝</td>
-    <td>降低内存使用和CPU开销</td>
-  </tr>
-  <tr>
-    <td align="center"><b>📊 队列设置</b></td>
-    <td>根据内存限制和生产消费速率调整队列大小</td>
-    <td>防止内存溢出，平衡处理延迟</td>
-  </tr>
-  <tr>
-    <td align="center"><b>🔗 依赖优化</b></td>
-    <td>减少不必要的任务依赖，避免串行瓶颈</td>
-    <td>提高并行度，减少等待时间</td>
-  </tr>
-</table>
-</div>
+- ✅ **事件驱动** - 节点完成立即触发后继，无轮询
+- ✅ **无锁队列** - ThreadSafeQueue 高效入队/出队
+- ✅ **原子操作** - 依赖计数用原子操作，减少锁竞争
 
 ---
 
-## 6. 示例应用
+## 🛠️ 编译和安装
 
-**example_stream.cpp** 展示了一个无人机视频处理系统的实现
----
+### 依赖
 
-## 7. 故障排除
+- C++17 或更高
+- CMake 3.10+
+- pthread
 
-### 7.1 常见问题及解决方案
+### 编译
 
-<div align="center">
-<table>
-  <tr style="background-color: #f8d7da; color: #721c24; text-align: center;">
-    <th align="center" width="150">问题类型</th>
-    <th align="center" width="300">可能原因</th>
-    <th align="center">解决方法</th>
-  </tr>
-  <tr>
-    <td align="center"><b>⚠️ 任务执行异常</b></td>
-    <td>任务依赖不正确，输入数据无效</td>
-    <td>检查任务依赖关系，验证输入数据有效性</td>
-  </tr>
-  <tr>
-    <td align="center"><b>⏱️ 性能瓶颈</b></td>
-    <td>某些任务执行时间过长</td>
-    <td>使用性能分析工具识别，优化或进一步并行化任务</td>
-  </tr>
-  <tr>
-    <td align="center"><b>💾 内存占用过高</b></td>
-    <td>输入队列过大，资源未及时释放</td>
-    <td>控制队列大小，及时释放不再使用的资源</td>
-  </tr>
-  <tr>
-    <td align="center"><b>⏳ 数据处理延迟</b></td>
-    <td>处理速度跟不上数据产生速度</td>
-    <td>增加处理线程，优化算法，降低数据生产率</td>
-  </tr>
-  <tr>
-    <td align="center"><b>🔒 任务死锁</b></td>
-    <td>资源竞争或依赖循环</td>
-    <td>检查依赖关系，确保没有循环依赖</td>
-  </tr>
-</table>
-</div>
+```bash
+git clone https://github.com/Grifcc/GryFlux.git
+cd GryFlux
+mkdir build && cd build
+cmake ..
+make -j8
+```
 
-### 7.2 调试技巧
+### 交叉编译（AArch64）
 
-<div align="center">
-<table>
-  <tr>
-    <th align="center" width="200">调试方法</th>
-    <th align="center">说明</th>
-  </tr>
-  <tr>
-    <td align="center"><b>🔍 启用详细日志</b></td>
-    <td>设置日志级别为 DEBUG 或 TRACE，获取更详细的执行信息</td>
-  </tr>
-  <tr>
-    <td align="center"><b>🧪 单元测试</b></td>
-    <td>为每个任务编写单元测试，验证其独立功能正确性</td>
-  </tr>
-  <tr>
-    <td align="center"><b>📊 性能分析</b></td>
-    <td>使用内置性能分析工具识别瓶颈任务和资源消耗</td>
-  </tr>
-  <tr>
-    <td align="center"><b>🔄 简化计算图</b></td>
-    <td>从简单计算图开始，逐步添加复杂性，定位问题</td>
-  </tr>
-  <tr>
-    <td align="center"><b>📝 状态检查点</b></td>
-    <td>在关键节点添加状态检查，验证中间数据正确性</td>
-  </tr>
-</table>
-</div>
+宿主机需要安装 `aarch64-linux-gnu` 工具链（或自带工具链包的 `bin/` 目录）。
+
+```bash
+# Release 构建（输出到 build/aarch64）
+./scripts/build-aarch64.sh --build-type Release
+
+# 清理后重建
+./scripts/build-aarch64.sh --clean --build-type Release
+
+# 安装到指定目录（可用于打包/部署）
+./scripts/build-aarch64.sh --install --prefix ./install/aarch64 --build-type Release
+```
+
+### 运行示例
+
+```bash
+# 并行管道示例
+./src/app/example/simple_pipeline_example
+
+# 查看详细日志（修改 simple_pipeline_example.cpp 设置 DEBUG 级别）
+LOG.setLevel(GryFlux::LogLevel::DEBUG);
+make -j8 && ./src/app/example/simple_pipeline_example
+```
+
+### 性能分析（Profiler）
+
+框架内置 `GraphProfiler`，支持两类输出：
+- **统计汇总**：每个节点的执行次数/平均耗时等
+- **时间线（JSON）**：可视化每个数据包在各节点上的执行区间
+
+1) 在代码中启用并导出时间线（示例）
+
+```cpp
+pipeline.setProfilingEnabled(true);
+pipeline.run();
+pipeline.printProfilingStats();
+pipeline.dumpProfilingTimeline("graph_timeline.json");
+```
+
+2) 把 `graph_timeline.json` 转成可视化 HTML
+
+```bash
+python3 -m pip install pandas plotly
+python3 scripts/plot_graph_timeline.py --input graph_timeline.json --output timeline.html
+```
+
+说明：
+- 数据包很多时建议用 `--limit-packets N` 或调小 `--packets-per-page`，避免页面过重。
 
 ---
 
-## 8. 总结
+## 📚 示例程序
 
-GryFlux流式处理框架提供了构建高性能数据处理应用的强大工具。通过任务图和并行执行，它能够有效处理高吞吐量的数据流，同时保持代码的模块化和可维护性。
+### 完整示例：并行目标检测 + 跟踪
 
-### 8.1 主要优势
+**场景**：
+- 两个并行分支：ImagePreprocess (CPU) 和 ObjectDetection (NPU)
+- FeatExtractor 依赖 ImagePreprocess
+- ObjectTracker 融合两个分支的结果
 
-<div align="center">
-<table>
-  <tr>
-    <th align="center" width="200">优势</th>
-    <th align="center">说明</th>
-  </tr>
-  <tr>
-    <td align="center"><b>🧩 模块化设计</b></td>
-    <td>促进代码复用，提高可维护性</td>
-  </tr>
-  <tr>
-    <td align="center"><b>⚡ 并行执行</b></td>
-    <td>提高处理效率，充分利用多核处理器</td>
-  </tr>
-  <tr>
-    <td align="center"><b>📊 灵活的任务图</b></td>
-    <td>支持复杂数据流和处理逻辑</td>
-  </tr>
-  <tr>
-    <td align="center"><b>📈 内置性能分析</b></td>
-    <td>助力识别和解决性能瓶颈</td>
-  </tr>
-  <tr>
-    <td align="center"><b>🔄 异步处理</b></td>
-    <td>高效处理连续数据流</td>
-  </tr>
-</table>
-</div>
+**代码**：见 `src/app/example/simple_pipeline_example.cpp`
 
-### 8.2 适用场景
+**运行结果**：
+```
+========================================
+  GryFlux Parallel Pipeline Example
+  Demonstrates Parallel Node Execution
+========================================
+Graph template built with parallel nodes:
+  Input -> ImagePreprocess -> FeatExtractor ┐
+       └-> ObjectDetection(NPU) ─────────────→ ObjectTracker
+========================================
+All 100 packets completed in 548 ms
+Average: 5.48 ms/packet
+Throughput: 182.48 packets/sec
+========================================
+Verification Results:
+  ✓ Success: 100 packets
+  ✗ Failure: 0 packets
+========================================
+```
 
-- **视频分析系统**：实时处理视频流，执行对象检测、跟踪和识别
-- **传感器数据处理**：处理来自多个传感器的数据流，执行融合和分析
-- **实时监控系统**：连续处理和分析监控数据，生成警报和报告
-- **数据流转换管道**：将数据从一种格式转换为另一种格式，同时执行清洗和验证
+详细说明见：[src/app/example/README.md](src/app/example/README.md)
 
-适当使用框架提供的性能分析工具，可以帮助识别和解决性能瓶颈，进一步优化应用性能。通过遵循本指南中的最佳实践，开发者可以充分利用流式处理框架的强大功能，构建高效、可靠的数据处理应用。
+---
 
-<div align="center">
-  <p style="margin-top: 50px; color: #666;">
-    <i>© 2025 GryFlux Gricc</i>
-  </p>
-</div>
+## 🔍 调试和日志
+
+### 日志级别
+
+```cpp
+LOG.setLevel(GryFlux::LogLevel::DEBUG);  // 显示详细日志
+LOG.setLevel(GryFlux::LogLevel::INFO);   // 只显示重要信息
+LOG.setLevel(GryFlux::LogLevel::WARN);   // 只显示警告
+LOG.setLevel(GryFlux::LogLevel::ERROR);  // 只显示错误
+```
+
+### 典型日志输出
+
+**DEBUG 级别**（NPU 操作详情）：
+```
+[DEBUG] Packet 2: ObjectDetection starting on NPU 0 (vec size = 256)
+[DEBUG] NPU 0: Copied 256 elements to device memory
+[DEBUG] NPU 0: Computed on 256 elements (offset = 10.0)
+[DEBUG] NPU 0: Copied 256 elements from device memory
+[DEBUG] Packet 2: ObjectDetection completed on NPU 0 (result size = 256)
+```
+
+**INFO 级别**（处理进度）：
+```
+[INFO ] Graph template built with 5 nodes
+[INFO ] AsyncGraphProcessor created with thread pool size 8, max active packets 16
+[INFO ] Producer thread completed, produced 100 packets
+[INFO ] Packet 0: ✓ PASS (sum = 3840.0, expected = 3840.0)
+[INFO ] Consumer thread completed, consumed 100 packets
+```
+
+---
+
+## 🚀 适用场景
+
+### 1. 嵌入式 AI 推理
+
+**典型应用**：
+- 智能摄像头（目标检测 + 跟踪）
+- 自动驾驶（多传感器融合）
+- 工业视觉（缺陷检测）
+
+**优势**：
+- 自动管理 NPU/DSP 资源
+- 多模型并行推理
+- 低延迟、高吞吐
+
+### 2. 实时视频处理
+
+**典型应用**：
+- 视频编解码
+- 实时滤镜
+- 目标跟踪
+
+**优势**：
+- 流式处理（Source → Graph → Consumer）
+- 背压控制（防止内存爆炸）
+- 多帧并行处理
+
+### 3. 传感器融合
+
+**典型应用**：
+- 激光雷达 + 摄像头融合
+- IMU + GPS 融合
+- 多传感器时间对齐
+
+**优势**：
+- 并行分支处理
+- 融合节点（多输入）
+- 事件驱动调度
+
+### 4. 边缘计算
+
+**典型应用**：
+- IoT 边缘节点
+- 5G MEC
+- 智能网关
+
+**优势**：
+- CPU + 硬件加速器混合
+- 资源受限环境优化
+- 低功耗设计
+
+---
+
+## 📐 架构设计原则
+
+### 1. 分离关注点
+
+- **GraphTemplate** - 定义"做什么"（DAG 拓扑）
+- **NodeBase** - 定义"怎么做"（节点逻辑）
+- **ResourcePool** - 管理"用什么"（硬件资源）
+- **AsyncGraphProcessor** - 负责"调度"（并行执行）
+
+### 2. 组合优于继承
+
+- NodeBase 是最小接口（只有 execute）
+- 用户通过组合 Context 获得硬件能力
+- 避免深层继承树
+
+### 3. RAII 资源管理
+
+- 智能指针自动管理生命周期
+- ResourcePool 自动分配和回收资源
+- 无需手动 delete
+
+### 4. 事件驱动
+
+- 节点完成立即触发后继节点
+- 无轮询，无忙等待
+- 高效利用 CPU
+
+---
+
+## 🤝 贡献指南
+
+欢迎贡献代码、报告 Bug 或提出新功能建议！
+
+### 报告 Bug
+
+请提供：
+1. 系统环境（OS、编译器版本）
+2. 复现步骤
+3. 期望行为 vs 实际行为
+4. 相关日志
+
+### 提交 Pull Request
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
+3. 提交修改 (`git commit -m 'Add amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 打开 Pull Request
+
+---
+
+## 📄 许可证
+
+Copyright 2025 Grifcc
+
+---
+
+## 📧 联系方式
+
+- GitHub: [@Grifcc](https://github.com/Grifcc)
+- Issues: [https://github.com/Grifcc/GryFlux/issues](https://github.com/Grifcc/GryFlux/issues)
+
+---
+
+## 🙏 致谢
+
+感谢所有贡献者和用户的支持！
+
+---
+
+## 📖 更多文档
+
+- [示例程序详解](src/app/example/README.md) - 完整的并行管道示例
