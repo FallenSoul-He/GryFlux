@@ -17,11 +17,13 @@
 #pragma once
 
 #include "graph_template.h"
+#include "node_base.h"
 #include <unordered_map>
 #include <string>
 #include <vector>
 #include <memory>
 #include <utility>
+#include <type_traits>
 
 namespace GryFlux
 {
@@ -40,10 +42,10 @@ namespace GryFlux
          * @brief 设置输入节点
          *
          * @param nodeId 节点ID
-         * @param taskFunc 任务函数
+         * @param nodeImpl 节点实现对象（必须继承 NodeBase）
          */
         void setInputNode(const std::string &nodeId,
-                          GraphTemplate::TemplateNode::TaskFunc taskFunc);
+                          std::shared_ptr<NodeBase> nodeImpl);
 
         /**
          * @brief 设置输入节点（模板版本）- 简化类节点创建
@@ -57,22 +59,21 @@ namespace GryFlux
         template<typename NodeType, typename... Args>
         void setInputNode(const std::string &nodeId, Args&&... args)
         {
-            auto node = std::make_shared<NodeType>(std::forward<Args>(args)...);
-            setInputNode(nodeId, [node](DataPacket &packet, Context &ctx) {
-                (*node)(packet, ctx);
-            });
+            static_assert(std::is_base_of<NodeBase, NodeType>::value,
+                          "NodeType must derive from GryFlux::NodeBase");
+            setInputNode(nodeId, std::make_shared<NodeType>(std::forward<Args>(args)...));
         }
 
         /**
          * @brief 添加任务节点
          *
          * @param nodeId 节点ID
-         * @param taskFunc 任务函数
+         * @param nodeImpl 节点实现对象（必须继承 NodeBase）
          * @param resourceTypeName 资源类型名称（空字符串表示CPU任务）
          * @param predecessorIds 前驱节点ID列表
          */
         void addTask(const std::string &nodeId,
-                     GraphTemplate::TemplateNode::TaskFunc taskFunc,
+                     std::shared_ptr<NodeBase> nodeImpl,
                      const std::string &resourceTypeName,
                      const std::vector<std::string> &predecessorIds);
 
@@ -107,27 +108,23 @@ namespace GryFlux
                      const std::vector<std::string> &predecessorIds,
                      Args&&... args)
         {
-            // 1. 创建节点对象（shared_ptr 管理生命周期）
-            auto node = std::make_shared<NodeType>(std::forward<Args>(args)...);
-
-            // 2. 包装成 lambda（捕获 shared_ptr，调用 operator()）
-            auto taskFunc = [node](DataPacket &packet, Context &ctx) {
-                (*node)(packet, ctx);
-            };
-
-            // 3. 调用原有的 addTask 函数
-            addTask(nodeId, taskFunc, resourceTypeName, predecessorIds);
+            static_assert(std::is_base_of<NodeBase, NodeType>::value,
+                          "NodeType must derive from GryFlux::NodeBase");
+            addTask(nodeId,
+                    std::make_shared<NodeType>(std::forward<Args>(args)...),
+                    resourceTypeName,
+                    predecessorIds);
         }
 
         /**
          * @brief 设置输出节点
          *
          * @param nodeId 节点ID
-         * @param taskFunc 任务函数
+         * @param nodeImpl 节点实现对象（必须继承 NodeBase）
          * @param predecessorIds 前驱节点ID列表
          */
         void setOutputNode(const std::string &nodeId,
-                           GraphTemplate::TemplateNode::TaskFunc taskFunc,
+                           std::shared_ptr<NodeBase> nodeImpl,
                            const std::vector<std::string> &predecessorIds);
 
         /**
@@ -145,10 +142,11 @@ namespace GryFlux
                            const std::vector<std::string> &predecessorIds,
                            Args&&... args)
         {
-            auto node = std::make_shared<NodeType>(std::forward<Args>(args)...);
-            setOutputNode(nodeId, [node](DataPacket &packet, Context &ctx) {
-                (*node)(packet, ctx);
-            }, predecessorIds);
+            static_assert(std::is_base_of<NodeBase, NodeType>::value,
+                          "NodeType must derive from GryFlux::NodeBase");
+            setOutputNode(nodeId,
+                          std::make_shared<NodeType>(std::forward<Args>(args)...),
+                          predecessorIds);
         }
 
         /**
@@ -157,6 +155,12 @@ namespace GryFlux
         void finalizeBuild();
 
     private:
+        void addTaskDefInternal(GraphTemplate::NodeType type,
+                                const std::string &nodeId,
+                                std::shared_ptr<NodeBase> nodeImpl,
+                                const std::string &resourceTypeName,
+                                const std::vector<std::string> &predecessorIds);
+
         std::shared_ptr<GraphTemplate> template_;
         std::unordered_map<std::string, size_t> nodeIdToIndex_;
     };

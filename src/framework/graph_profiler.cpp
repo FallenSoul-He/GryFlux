@@ -45,7 +45,7 @@ namespace GryFlux
             return;
         }
 
-        uint64_t packetId = packet ? packet->getId() : 0;
+        uint64_t packetId = packet ? packet->getIdx() : 0;
 
         Event event{
             EventType::Scheduled,
@@ -66,7 +66,7 @@ namespace GryFlux
             return;
         }
 
-        uint64_t packetId = packet ? packet->getId() : 0;
+        uint64_t packetId = packet ? packet->getIdx() : 0;
 
         Event event{
             EventType::Started,
@@ -87,7 +87,7 @@ namespace GryFlux
             return;
         }
 
-        uint64_t packetId = packet ? packet->getId() : 0;
+        uint64_t packetId = packet ? packet->getIdx() : 0;
 
         Event event{
             EventType::Finished,
@@ -108,7 +108,7 @@ namespace GryFlux
             return;
         }
 
-        uint64_t packetId = packet ? packet->getId() : 0;
+        uint64_t packetId = packet ? packet->getIdx() : 0;
 
         Event event{
             EventType::Failed,

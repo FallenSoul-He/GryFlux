@@ -45,7 +45,7 @@ struct SimpleDataPacket : public GryFlux::DataPacket
 
     SimpleDataPacket() : id(0) {}
 
-    uint64_t getId() const override
+    uint64_t getIdx() const override
     {
         return static_cast<uint64_t>(id);
     }

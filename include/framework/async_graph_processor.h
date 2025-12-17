@@ -20,6 +20,7 @@
 #include "resource_pool.h"
 #include "task_scheduler.h"
 #include "utils/threadsafe_queue.h"
+#include "utils/noncopyable.h"
 #include <memory>
 #include <functional>
 #include <unordered_map>
@@ -41,6 +42,7 @@ namespace GryFlux
      * 4. 调用 tryGetOutput() 获取结果
      */
     class AsyncGraphProcessor
+        : private NonCopyableNonMovable
     {
     public:
         /**
@@ -57,10 +59,6 @@ namespace GryFlux
                             size_t maxActivePackets = 0);
 
         ~AsyncGraphProcessor();
-
-        // 禁止拷贝和赋值
-        AsyncGraphProcessor(const AsyncGraphProcessor &) = delete;
-        AsyncGraphProcessor &operator=(const AsyncGraphProcessor &) = delete;
 
         /**
          * @brief 启动处理器

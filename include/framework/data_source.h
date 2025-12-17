@@ -8,6 +8,7 @@
 
 #include "data_packet.h"
 #include <memory>
+#include <atomic>
 
 namespace GryFlux
 {
@@ -25,11 +26,8 @@ namespace GryFlux
  *     std::unique_ptr<DataPacket> produce() override {
  *         auto packet = std::make_unique<ImagePacket>();
  *         // Read frame from video file
+ *         // 读完后调用 setHasMore(false) 来停止生产
  *         return packet;
- *     }
- *
- *     bool hasMore() override {
- *         return !videoFile.eof();
  *     }
  * };
  * @endcode
@@ -51,10 +49,25 @@ public:
     /**
      * @brief 检查是否还有更多数据
      *
+     * 这是一个非虚函数：框架统一通过内部状态变量判断是否继续生产。
+     * 用户在 `produce()` 内部根据自身状态调用 `setHasMore(false)` 来停止生产。
+     *
      * @return true  - 还有数据，继续调用 produce()
      *         false - 数据已耗尽，停止生产
      */
-    virtual bool hasMore() = 0;
+    bool hasMore() const
+    {
+        return hasMore_.load(std::memory_order_acquire);
+    }
+
+protected:
+    void setHasMore(bool hasMore)
+    {
+        hasMore_.store(hasMore, std::memory_order_release);
+    }
+
+private:
+    std::atomic<bool> hasMore_{true};
 };
 
 } // namespace GryFlux

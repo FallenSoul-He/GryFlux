@@ -11,6 +11,7 @@
 #include "async_graph_processor.h"
 #include "graph_template.h"
 #include "resource_pool.h"
+#include "utils/noncopyable.h"
 #include <memory>
 #include <thread>
 #include <atomic>
@@ -43,13 +44,14 @@ namespace GryFlux
  * @endcode
  */
 class AsyncPipeline
+    : private NonCopyableNonMovable
 {
 public:
     /**
      * @brief 构造函数
      *
      * @param source 数据源
-     * @param graphTemplate 图模板
+     * @param graphTemplate 计算图
      * @param resourcePool 资源池
      * @param consumer 数据消费者
      * @param threadPoolSize 线程池大小（0表示自动）
@@ -63,12 +65,6 @@ public:
                   size_t maxActivePackets = 0);
 
     ~AsyncPipeline();
-
-    // 禁止拷贝和移动
-    AsyncPipeline(const AsyncPipeline &) = delete;
-    AsyncPipeline &operator=(const AsyncPipeline &) = delete;
-    AsyncPipeline(AsyncPipeline &&) = delete;
-    AsyncPipeline &operator=(AsyncPipeline &&) = delete;
 
     /**
      * @brief 运行管道（阻塞直到完成）
@@ -137,4 +133,3 @@ private:
 } // namespace GryFlux
 
 #endif // GRYFLUX_ASYNC_PIPELINE_H
-

@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include "utils/noncopyable.h"
 
 namespace GryFlux
 {
@@ -45,18 +46,11 @@ namespace GryFlux
      * };
      */
     class DataPacket
+        : private NonCopyableNonMovable
     {
     public:
         DataPacket() = default;
         virtual ~DataPacket() = default;
-
-        // 禁止拷贝（防止意外复制大对象和执行状态）
-        DataPacket(const DataPacket &) = delete;
-        DataPacket &operator=(const DataPacket &) = delete;
-
-        // 禁止移动（执行状态包含原子变量，不可移动）
-        DataPacket(DataPacket &&) = delete;
-        DataPacket &operator=(DataPacket &&) = delete;
 
         /**
          * @brief 内嵌的执行状态
@@ -80,9 +74,9 @@ namespace GryFlux
         ExecutionState executionState_;
 
         /**
-         * @brief 返回数据包的唯一 ID（必须实现）
+         * @brief 返回数据包的帧号/序号（必须实现）
          */
-        virtual uint64_t getId() const = 0;
+        virtual uint64_t getIdx() const = 0;
 
         /**
          * @brief 初始化执行状态（框架调用）

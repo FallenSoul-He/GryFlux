@@ -16,42 +16,40 @@
  *************************************************************************************************************************/
 #pragma once
 
-#include "utils/noncopyable.h"
-
 namespace GryFlux
 {
 
-    /**
-     * @brief 硬件资源上下文基类
-     *
-     * 用户应继承此类实现特定的硬件资源上下文（如 NPUContext、DPUContext、TrackerContext 等）
-     */
-    class Context
+    class NonCopyable
     {
+    protected:
+        constexpr NonCopyable() = default;
+        ~NonCopyable() = default;
+
+        NonCopyable(NonCopyable &&) = default;
+        NonCopyable &operator=(NonCopyable &&) = default;
+
     public:
-        virtual ~Context() = default;
+        NonCopyable(const NonCopyable &) = delete;
+        NonCopyable &operator=(const NonCopyable &) = delete;
     };
 
-    /**
-     * @brief 空上下文（None 模式）
-     *
-     * 用于不需要硬件资源的 CPU 任务。
-     * 这样所有任务函数都可以使用 Context& 引用，避免 nullptr。
-     */
-    class None : public Context
-        , private NonCopyableNonMovable
+    class NonMovable
     {
-    public:
-        // 单例模式
-        static None &instance()
-        {
-            static None inst;
-            return inst;
-        }
+    protected:
+        constexpr NonMovable() = default;
+        ~NonMovable() = default;
 
-    private:
-        None() = default;
-        ~None() = default;
+    public:
+        NonMovable(NonMovable &&) = delete;
+        NonMovable &operator=(NonMovable &&) = delete;
+    };
+
+    class NonCopyableNonMovable : private NonCopyable, private NonMovable
+    {
+    protected:
+        constexpr NonCopyableNonMovable() = default;
+        ~NonCopyableNonMovable() = default;
     };
 
 } // namespace GryFlux
+

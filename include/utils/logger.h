@@ -25,6 +25,7 @@
 #include <chrono>
 #include <iomanip>
 #include <atomic>
+#include "utils/noncopyable.h"
 
 namespace GryFlux
 {
@@ -50,6 +51,7 @@ namespace GryFlux
     };
 
     class Logger
+        : private NonCopyableNonMovable
     {
     public:
         // 获取Logger单例
@@ -158,10 +160,6 @@ namespace GryFlux
     private:
         Logger();
         ~Logger();
-
-        // 禁止拷贝和赋值
-        Logger(const Logger &) = delete;
-        Logger &operator=(const Logger &) = delete;
 
         // 获取当前时间戳
         std::string getCurrentTimestamp();

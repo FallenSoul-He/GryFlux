@@ -32,10 +32,10 @@ namespace GryFlux
         // 初始化每个节点的依赖计数
         for (size_t i = 0; i < tmpl->getNodeCount(); ++i)
         {
-            auto &node = tmpl->getNode(i);
+            auto &node = tmpl->getTask(i);
 
             auto state = std::make_unique<ExecutionState::NodeState>();
-            state->unfinishedPredecessorCount.store(node.predecessorIndices.size(), std::memory_order_relaxed);
+            state->unfinishedPredecessorCount.store(node.parentIndices.size(), std::memory_order_relaxed);
             state->hasBeenEnqueued.store(false, std::memory_order_relaxed);
             state->isCompleted.store(false, std::memory_order_relaxed);
 

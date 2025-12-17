@@ -24,20 +24,18 @@
 #include <functional>
 #include <future>
 #include <type_traits>
+#include "utils/noncopyable.h"
 
 namespace GryFlux
 {
 
     // 线程池实现
     class ThreadPool
+        : private NonCopyableNonMovable
     {
     public:
         explicit ThreadPool(size_t numThreads);
         ~ThreadPool();
-
-        // 禁止复制
-        ThreadPool(const ThreadPool &) = delete;
-        ThreadPool &operator=(const ThreadPool &) = delete;
 
         // 提交任务到线程池
         template <class F>

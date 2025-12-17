@@ -22,6 +22,7 @@
 #include <memory>
 #include <functional>
 #include <chrono>
+#include "utils/noncopyable.h"
 
 namespace GryFlux
 {
@@ -32,16 +33,13 @@ namespace GryFlux
      * 执行节点任务，管理资源获取，触发后继节点调度。
      */
     class TaskScheduler
+        : private NonCopyableNonMovable
     {
     public:
         TaskScheduler(std::shared_ptr<ResourcePool> resourcePool,
                       std::shared_ptr<ThreadPool> threadPool);
 
         ~TaskScheduler() = default;
-
-        // 禁止拷贝和赋值
-        TaskScheduler(const TaskScheduler &) = delete;
-        TaskScheduler &operator=(const TaskScheduler &) = delete;
 
         /**
          * @brief 设置数据包完成回调

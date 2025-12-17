@@ -25,6 +25,7 @@
 #include <condition_variable>
 #include <unordered_map>
 #include <chrono>
+#include "utils/noncopyable.h"
 
 namespace GryFlux
 {
@@ -33,16 +34,14 @@ namespace GryFlux
      * @brief 资源池 - 管理有限的硬件资源
      *
      * 用于管理NPU、DPU、Tracker等硬件资源，控制并发度。
+     * TODO: Tracker节点作为一个全局唯一上下文的特殊情况，目前需要抽象为单独的资源类型。
      */
     class ResourcePool
+        : private NonCopyableNonMovable
     {
     public:
         ResourcePool() = default;
         ~ResourcePool() = default;
-
-        // 禁止拷贝和赋值
-        ResourcePool(const ResourcePool &) = delete;
-        ResourcePool &operator=(const ResourcePool &) = delete;
 
         /**
          * @brief 注册资源类型

@@ -16,23 +16,25 @@
  *************************************************************************************************************************/
 #pragma once
 
-#include "context.h"
-#include "data_packet.h"
 #include <string>
 #include <vector>
 #include <functional>
 #include <memory>
+#include <stdexcept>
 
 namespace GryFlux
 {
 
     // 前向声明
     class TemplateBuilder;
+    class NodeBase;
+    class DataPacket;
+    class TaskScheduler;
 
     /**
      * @brief 图模板 - 不可变的DAG拓扑结构
      *
-     * 存储图的拓扑结构和任务函数，所有数据包共享同一个图模板。
+     * 存储图的拓扑结构和节点实现对象，所有数据包共享同一个图模板。
      * 只在初始化时构建一次，后续所有数据包复用此模板。
      */
     class GraphTemplate : public std::enable_shared_from_this<GraphTemplate>
@@ -49,23 +51,21 @@ namespace GryFlux
         };
 
         /**
-         * @brief 模板节点（只存拓扑和函数，不存状态）
+         * @brief 任务定义（只存拓扑和节点定义，不存运行时状态）
          */
-        struct TemplateNode
+        struct TaskDef
         {
             NodeType type;
             std::string nodeId;
             std::string resourceTypeName; // 空字符串 = CPU任务
 
-            // 任务函数（直接修改 DataPacket）
-            // DataPacket& - 引用（表达借用语义，防止delete/重新赋值，强制非空）
-            // Context& - 引用（防止对指针的误操作，CPU任务使用NullContext::instance()）
-            using TaskFunc = std::function<void(DataPacket &, Context &)>;
-            TaskFunc taskFunc;
-
             // 拓扑关系（存索引，不存指针）
-            std::vector<size_t> predecessorIndices;
-            std::vector<size_t> successorIndices;
+            // parent = 依赖的父节点（前驱），child = 被触发的子节点（后继）
+            std::vector<size_t> parentIndices;
+            std::vector<size_t> childIndices;
+
+            // 节点实现对象（节点算子）
+            std::shared_ptr<NodeBase> nodeImpl;
         };
 
         /**
@@ -80,15 +80,42 @@ namespace GryFlux
         /**
          * @brief 获取节点数量
          */
-        size_t getNodeCount() const { return nodes_.size(); }
+        size_t getNodeCount() const { return tasks_.size(); }
 
         /**
-         * @brief 获取节点
+         * @brief 获取节点实现对象（NodeBase，调试用）
          *
          * @param idx 节点索引
-         * @return 节点引用
+         * @return 节点实现对象（始终非空）
          */
-        const TemplateNode &getNode(size_t idx) const { return nodes_[idx]; }
+        std::shared_ptr<NodeBase> getNode(size_t idx) const { return getTask(idx).nodeImpl; }
+
+        /**
+         * @brief 通过 nodeId 查找节点索引（线性查找，调试场景足够）
+         *
+         * @throws std::runtime_error 若未找到
+         */
+        size_t getNodeIndexById(const std::string &nodeId) const
+        {
+            for (size_t i = 0; i < tasks_.size(); ++i)
+            {
+                if (tasks_[i].nodeId == nodeId)
+                {
+                    return i;
+                }
+            }
+            throw std::runtime_error("Node ID '" + nodeId + "' not found");
+        }
+
+        /**
+         * @brief 通过 nodeId 获取节点实现对象（调试/离线调用用）
+         *
+         * @throws std::runtime_error 若未找到
+         */
+        std::shared_ptr<NodeBase> getNodeById(const std::string &nodeId) const
+        {
+            return getNode(getNodeIndexById(nodeId));
+        }
 
         /**
          * @brief 获取输入节点索引（约定：总是索引0）
@@ -98,12 +125,16 @@ namespace GryFlux
         /**
          * @brief 获取输出节点索引（约定：总是最后一个）
          */
-        size_t getOutputNodeIndex() const { return nodes_.size() - 1; }
+        size_t getOutputNodeIndex() const { return tasks_.size() - 1; }
 
     private:
         friend class TemplateBuilder;
+        friend class DataPacket;
+        friend class TaskScheduler;
 
-        std::vector<TemplateNode> nodes_; // 扁平化数组（cache-friendly）
+        const TaskDef &getTask(size_t idx) const { return tasks_[idx]; }
+
+        std::vector<TaskDef> tasks_; // 扁平化数组（cache-friendly）
     };
 
 } // namespace GryFlux

@@ -16,9 +16,11 @@
  *************************************************************************************************************************/
 #include "framework/task_scheduler.h"
 #include "framework/graph_template.h"
+#include "framework/node_base.h"
 #include "framework/profiler/graph_profiler.h"
 #include "utils/logger.h"
 #include <deque>
+#include <stdexcept>
 
 namespace GryFlux
 {
@@ -42,7 +44,7 @@ namespace GryFlux
     void TaskScheduler::scheduleNode(DataPacket *packet, size_t nodeIndex)
     {
         auto &tmpl = packet->executionState_.graphTemplate;
-        const auto &node = tmpl->getNode(nodeIndex);
+        const auto &node = tmpl->getTask(nodeIndex);
 
         auto &profiler = GraphProfiler::instance();
         if (profiler.isEnabled())
@@ -68,7 +70,7 @@ namespace GryFlux
             size_t currentIndex = readyQueue.front();
             readyQueue.pop_front();
 
-            auto &node = tmpl->getNode(currentIndex);
+            auto &node = tmpl->getTask(currentIndex);
             std::shared_ptr<Context> ctx;
 
             if (!node.resourceTypeName.empty())
@@ -94,13 +96,18 @@ namespace GryFlux
 
             try
             {
+                if (!node.nodeImpl)
+                {
+                    throw std::runtime_error("Node implementation is null");
+                }
+
                 if (ctx)
                 {
-                    node.taskFunc(*packet, *ctx);
+                    node.nodeImpl->execute(*packet, *ctx);
                 }
                 else
                 {
-                    node.taskFunc(*packet, None::instance());
+                    node.nodeImpl->execute(*packet, None::instance());
                 }
 
                 packet->markNodeCompleted(currentIndex);
@@ -111,7 +118,7 @@ namespace GryFlux
                 }
 
                 bool inlineAssigned = false;
-                for (size_t succIdx : node.successorIndices)
+                for (size_t succIdx : node.childIndices)
                 {
                     packet->notifyPredecessorCompleted(succIdx);
 
@@ -121,7 +128,7 @@ namespace GryFlux
                         {
                             if (profilerEnabled)
                             {
-                                profiler.recordNodeScheduled(packet, tmpl->getNode(succIdx).nodeId);
+                                profiler.recordNodeScheduled(packet, tmpl->getTask(succIdx).nodeId);
                             }
                             readyQueue.push_back(succIdx);
                             inlineAssigned = true;
