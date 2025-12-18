@@ -37,10 +37,10 @@ namespace GryFlux
             }
         }
 
-        // 确定最大活跃数据包数（默认为线程池的2倍）
+        // 确定最大活跃数据包数（默认为线程池 - 1）
         if (maxActivePackets == 0)
         {
-            maxActivePackets_ = poolSize * 2;
+            maxActivePackets_ = poolSize - 1;
         }
         else
         {

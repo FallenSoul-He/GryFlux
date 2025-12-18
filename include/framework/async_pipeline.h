@@ -55,7 +55,7 @@ public:
      * @param resourcePool 资源池
      * @param consumer 数据消费者
      * @param threadPoolSize 线程池大小（0表示自动）
-     * @param maxActivePackets 最大活跃数据包数（0表示自动：threadPoolSize × 2）
+     * @param maxActivePackets 最大活跃数据包数（0表示自动：threadPoolSize - 1）
      */
     AsyncPipeline(std::shared_ptr<DataSource> source,
                   std::shared_ptr<GraphTemplate> graphTemplate,
