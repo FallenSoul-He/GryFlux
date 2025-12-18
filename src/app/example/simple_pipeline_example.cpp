@@ -157,7 +157,7 @@ int main(int argc, char **argv)
         graphTemplate,
         resourcePool,
         consumer,
-        12, // Thread pool size (maxActivePackets = 8 - 1 = 7 by default),
+        12 // Thread pool size (maxActivePackets = 8 - 1 = 7 by default),
     );
 
     // 启用 profiler（可通过命令行参数控制）
