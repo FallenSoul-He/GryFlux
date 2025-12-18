@@ -29,7 +29,7 @@ namespace GryFlux
     void TemplateBuilder::setInputNode(const std::string &nodeId,
                                        std::shared_ptr<NodeBase> nodeImpl)
     {
-        addTaskDefInternal(GraphTemplate::NodeType::Input,
+        addTaskDefInternal(detail::NodeType::Input,
                            nodeId,
                            std::move(nodeImpl),
                            "",
@@ -41,7 +41,7 @@ namespace GryFlux
                                   const std::string &resourceTypeName,
                                   const std::vector<std::string> &predecessorIds)
     {
-        addTaskDefInternal(GraphTemplate::NodeType::Task,
+        addTaskDefInternal(detail::NodeType::Task,
                            nodeId,
                            std::move(nodeImpl),
                            resourceTypeName,
@@ -52,14 +52,14 @@ namespace GryFlux
                                         std::shared_ptr<NodeBase> nodeImpl,
                                         const std::vector<std::string> &predecessorIds)
     {
-        addTaskDefInternal(GraphTemplate::NodeType::Output,
+        addTaskDefInternal(detail::NodeType::Output,
                            nodeId,
                            std::move(nodeImpl),
                            "",
                            predecessorIds);
     }
 
-    void TemplateBuilder::addTaskDefInternal(GraphTemplate::NodeType type,
+    void TemplateBuilder::addTaskDefInternal(detail::NodeType type,
                                              const std::string &nodeId,
                                              std::shared_ptr<NodeBase> nodeImpl,
                                              const std::string &resourceTypeName,
@@ -75,7 +75,7 @@ namespace GryFlux
             throw std::runtime_error("Node ID '" + nodeId + "' already exists");
         }
 
-        if (type == GraphTemplate::NodeType::Input)
+        if (type == detail::NodeType::Input)
         {
             if (!template_->tasks_.empty())
             {
@@ -87,10 +87,10 @@ namespace GryFlux
             }
         }
 
-        GraphTemplate::TaskDef node;
+        detail::TaskDef node;
         node.type = type;
         node.nodeId = nodeId;
-        node.resourceTypeName = (type == GraphTemplate::NodeType::Task) ? resourceTypeName : "";
+        node.resourceTypeName = (type == detail::NodeType::Task) ? resourceTypeName : "";
         node.nodeImpl = std::move(nodeImpl);
 
         // 解析前驱节点索引
@@ -111,13 +111,13 @@ namespace GryFlux
         const char *typeStr = nullptr;
         switch (type)
         {
-        case GraphTemplate::NodeType::Input:
+        case detail::NodeType::Input:
             typeStr = "input";
             break;
-        case GraphTemplate::NodeType::Task:
+        case detail::NodeType::Task:
             typeStr = "task";
             break;
-        case GraphTemplate::NodeType::Output:
+        case detail::NodeType::Output:
             typeStr = "output";
             break;
         }

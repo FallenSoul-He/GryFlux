@@ -155,7 +155,7 @@ namespace GryFlux
         void finalizeBuild();
 
     private:
-        void addTaskDefInternal(GraphTemplate::NodeType type,
+        void addTaskDefInternal(detail::NodeType type,
                                 const std::string &nodeId,
                                 std::shared_ptr<NodeBase> nodeImpl,
                                 const std::string &resourceTypeName,

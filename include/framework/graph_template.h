@@ -31,17 +31,10 @@ namespace GryFlux
     class DataPacket;
     class TaskScheduler;
 
-    /**
-     * @brief 图模板 - 不可变的DAG拓扑结构
-     *
-     * 存储图的拓扑结构和节点实现对象，所有数据包共享同一个图模板。
-     * 只在初始化时构建一次，后续所有数据包复用此模板。
-     */
-    class GraphTemplate : public std::enable_shared_from_this<GraphTemplate>
+    namespace detail
     {
-    public:
         /**
-         * @brief 节点类型
+         * @brief 节点类型（GraphTemplate 内部使用）
          */
         enum class NodeType
         {
@@ -67,7 +60,17 @@ namespace GryFlux
             // 节点实现对象（节点算子）
             std::shared_ptr<NodeBase> nodeImpl;
         };
+    } // namespace detail
 
+    /**
+     * @brief 图模板 - 不可变的DAG拓扑结构
+     *
+     * 存储图的拓扑结构和节点实现对象，所有数据包共享同一个图模板。
+     * 只在初始化时构建一次，后续所有数据包复用此模板。
+     */
+    class GraphTemplate : public std::enable_shared_from_this<GraphTemplate>
+    {
+    public:
         /**
          * @brief 构建图（从用户回调）
          *
@@ -132,9 +135,9 @@ namespace GryFlux
         friend class DataPacket;
         friend class TaskScheduler;
 
-        const TaskDef &getTask(size_t idx) const { return tasks_[idx]; }
+        const detail::TaskDef &getTask(size_t idx) const { return tasks_[idx]; }
 
-        std::vector<TaskDef> tasks_; // 扁平化数组（cache-friendly）
+        std::vector<detail::TaskDef> tasks_; // 扁平化数组（cache-friendly）
     };
 
 } // namespace GryFlux
