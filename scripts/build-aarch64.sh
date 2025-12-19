@@ -31,7 +31,7 @@ Options:
   --build-type <Debug|Release|RelWithDebInfo|MinSizeRel>  Default: Debug
   --build-dir <path>                                     Default: build/aarch64
   --jobs <N>                                              Default: nproc
-  --profile                                               Build with graph profiling compiled in (-DGRYFLUX_BUILD_PROFILING=1)
+  --enable_profile                                        Build with graph profiling compiled in (-DGRYFLUX_BUILD_PROFILING=1)
   --clean                                                 Remove build dir before configure
   --install                                               Run "cmake --install"
   --prefix <path>                                         Install prefix (needs --install)
@@ -74,7 +74,7 @@ while (($#)); do
     --build-type) BUILD_TYPE="${2:-}"; shift 2 ;;
     --build-dir) BUILD_DIR="${2:-}"; shift 2 ;;
     --jobs) JOBS="${2:-}"; shift 2 ;;
-    --profile) DO_PROFILE=true; shift ;;
+    --enable_profile) DO_PROFILE=true; shift ;;
     --clean) DO_CLEAN=true; shift ;;
     --install) DO_INSTALL=true; shift ;;
     --prefix) PREFIX="${2:-}"; shift 2 ;;

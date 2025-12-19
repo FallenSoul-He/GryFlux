@@ -4,17 +4,17 @@ set -euo pipefail
 usage() {
     cat <<'EOF'
 Usage:
-  bash build.sh [--profile]
+  bash build.sh [--enable_profile]
 
 Options:
-  --profile   Build with graph profiling compiled in (-DGRYFLUX_BUILD_PROFILING=1)
+  --enable_profile   Build with graph profiling compiled in (-DGRYFLUX_BUILD_PROFILING=1)
 EOF
 }
 
 profile=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
-    --profile)
+    --enable_profile)
         profile=1
         shift
         ;;

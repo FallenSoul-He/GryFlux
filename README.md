@@ -425,6 +425,25 @@ make -j8 && ./src/app/example/simple_pipeline_example
 - **统计汇总**：每个节点的执行次数/平均耗时等
 - **时间线（JSON）**：可视化每个数据包在各节点上的执行区间
 
+0) 编译时启用（build-time）
+
+Profiler 默认不编译进二进制；需要在编译时打开开关并重新编译：
+
+```bash
+# 本机编译（推荐：使用脚本）
+bash build.sh --enable_profile
+
+# 或者直接加编译宏
+cmake -S . -B build -DCMAKE_CXX_FLAGS='-DGRYFLUX_BUILD_PROFILING=1'
+cmake --build build -j
+
+# AArch64 交叉编译
+./scripts/build-aarch64.sh --enable_profile --build-type Release
+```
+
+说明：
+- 这是编译期开关：启用/关闭都需要重新编译，不能靠命令行参数动态切换。
+
 1) 在代码中启用并导出时间线（示例）
 
 ```cpp
@@ -567,7 +586,7 @@ LOG.setLevel(GryFlux::LogLevel::ERROR);  // 只显示错误
 
 ## 📄 许可证
 
-Copyright 2025 Grifcc
+Copyright 2025 Grifcc & Sunhaihua1
 
 ---
 
