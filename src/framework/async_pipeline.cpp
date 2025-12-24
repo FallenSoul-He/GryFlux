@@ -17,14 +17,20 @@ namespace GryFlux
                                  std::shared_ptr<ResourcePool> resourcePool,
                                  std::shared_ptr<DataConsumer> consumer,
                                  size_t threadPoolSize,
-                                 size_t maxActivePackets)
-        : source_(source), consumer_(consumer), running_(false), producerDone_(false)
+                                 size_t maxActivePackets,
+                                 std::chrono::milliseconds resourceAcquireTimeout)
+        : source_(source),
+          consumer_(consumer),
+          resourceAcquireTimeout_(resourceAcquireTimeout),
+          running_(false),
+          producerDone_(false)
     {
         processor_ = std::make_shared<AsyncGraphProcessor>(
             graphTemplate,
             resourcePool,
             threadPoolSize,
-            maxActivePackets);
+            maxActivePackets,
+            resourceAcquireTimeout_);
 
         LOG.info("AsyncPipeline created");
     }

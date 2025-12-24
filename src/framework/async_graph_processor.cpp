@@ -23,7 +23,8 @@ namespace GryFlux
     AsyncGraphProcessor::AsyncGraphProcessor(std::shared_ptr<GraphTemplate> graphTemplate,
                                                std::shared_ptr<ResourcePool> resourcePool,
                                                size_t threadPoolSize,
-                                               size_t maxActivePackets)
+                                               size_t maxActivePackets,
+                                               std::chrono::milliseconds resourceAcquireTimeout)
         : graphTemplate_(graphTemplate), isRunning_(false)
     {
         // 确定线程池大小
@@ -56,6 +57,7 @@ namespace GryFlux
 
         // 创建调度器
         scheduler_ = std::make_shared<TaskScheduler>(resourcePool, threadPool_);
+        scheduler_->setResourceAcquireTimeout(resourceAcquireTimeout);
 
         // 设置完成回调 - 从 activePackets_ 取回所有权并放入 outputQueue
         scheduler_->setCompletionCallback([this](DataPacket *packet)
