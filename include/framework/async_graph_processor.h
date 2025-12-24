@@ -51,7 +51,7 @@ namespace GryFlux
          * @param graphTemplate 图模板
          * @param resourcePool 资源池
          * @param threadPoolSize 线程池大小（0表示使用硬件并发数）
-         * @param maxActivePackets 最大活跃数据包数（0表示自动：threadPoolSize - 1）
+         * @param maxActivePackets 最大活跃数据包数（0表示自动：threadPoolSize - 1，且最小为 1）
          */
         AsyncGraphProcessor(std::shared_ptr<GraphTemplate> graphTemplate,
                             std::shared_ptr<ResourcePool> resourcePool,

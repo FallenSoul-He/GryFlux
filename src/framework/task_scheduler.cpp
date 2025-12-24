@@ -27,13 +27,18 @@ namespace GryFlux
 
     TaskScheduler::TaskScheduler(std::shared_ptr<ResourcePool> resourcePool,
                                    std::shared_ptr<ThreadPool> threadPool)
-        : resourcePool_(resourcePool), threadPool_(threadPool), resourceAcquireTimeout_(std::chrono::seconds(10))
+        : resourcePool_(resourcePool), threadPool_(threadPool), resourceAcquireTimeout_(std::chrono::milliseconds(0))
     {
     }
 
     void TaskScheduler::setCompletionCallback(std::function<void(DataPacket *)> callback)
     {
         completionCallback_ = callback;
+    }
+
+    void TaskScheduler::setFailureCallback(std::function<void(DataPacket *)> callback)
+    {
+        failureCallback_ = callback;
     }
 
     void TaskScheduler::setResourceAcquireTimeout(std::chrono::milliseconds timeout)
@@ -161,10 +166,12 @@ namespace GryFlux
     {
         packet->executionState_.isGraphCompleted.store(true, std::memory_order_release);
 
-        LOG.warning("Data packet failed at node index %zu, deleting packet", nodeIndex);
+        LOG.warning("Data packet failed at node index %zu", nodeIndex);
 
-        // 失败的包直接删除
-        delete packet;
+        if (failureCallback_)
+        {
+            failureCallback_(packet);
+        }
     }
 
     void TaskScheduler::onGraphCompleted(DataPacket *packet)

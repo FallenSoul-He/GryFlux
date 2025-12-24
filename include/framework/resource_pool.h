@@ -57,6 +57,8 @@ namespace GryFlux
          *
          * @param typeName 资源类型名称
          * @param timeout 超时时间
+         *        - timeout == 0ms：无限等待（推荐用于仅作为并发度限制器的场景）
+         *        - timeout  > 0ms：等待直到超时返回 nullptr
          * @return 资源上下文，超时返回 nullptr
          */
         std::shared_ptr<Context> acquire(const std::string &typeName,

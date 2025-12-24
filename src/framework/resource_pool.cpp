@@ -62,9 +62,15 @@ namespace GryFlux
         // 等待资源可用
         std::unique_lock<std::mutex> poolLock(pool.poolMutex);
 
-        if (!pool.availabilityCondition.wait_for(poolLock, timeout,
-                                                  [&pool]()
-                                                  { return !pool.availableContexts.empty(); }))
+        // timeout == 0 => block indefinitely (resource pool acts as concurrency limiter)
+        if (timeout == std::chrono::milliseconds::zero())
+        {
+            pool.availabilityCondition.wait(poolLock, [&pool]()
+                                             { return !pool.availableContexts.empty(); });
+        }
+        else if (!pool.availabilityCondition.wait_for(poolLock, timeout,
+                                                       [&pool]()
+                                                       { return !pool.availableContexts.empty(); }))
         {
             // 超时
             LOG.warning("Timeout acquiring resource '%s'", typeName.c_str());

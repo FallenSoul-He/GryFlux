@@ -40,11 +40,15 @@ namespace GryFlux
         // 确定最大活跃数据包数（默认为线程池 - 1）
         if (maxActivePackets == 0)
         {
-            maxActivePackets_ = poolSize - 1;
+            maxActivePackets_ = (poolSize > 1) ? (poolSize - 1) : 1;
         }
         else
         {
             maxActivePackets_ = maxActivePackets;
+        }
+        if (maxActivePackets_ == 0)
+        {
+            maxActivePackets_ = 1;
         }
 
         // 创建线程池
@@ -60,6 +64,15 @@ namespace GryFlux
             auto it = activePackets_.find(packet);
             if (it != activePackets_.end()) {
                 outputQueue_.push(std::move(it->second));
+                activePackets_.erase(it);
+            } });
+
+        // 设置失败回调 - 释放 activePackets_ 所有权，避免卡住/泄漏
+        scheduler_->setFailureCallback([this](DataPacket *packet)
+                                        {
+            std::lock_guard<std::mutex> lock(activePacketsMutex_);
+            auto it = activePackets_.find(packet);
+            if (it != activePackets_.end()) {
                 activePackets_.erase(it);
             } });
 
