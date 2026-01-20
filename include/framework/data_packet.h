@@ -61,6 +61,8 @@ namespace GryFlux
 
             // Packet-level state
             std::atomic<bool> hasFailed{false};
+            std::atomic<uint32_t> inFlight{0};
+            std::atomic<bool> completionNotified{false};
 
             // 每个节点的运行时状态
             struct NodeState
@@ -126,6 +128,16 @@ namespace GryFlux
          * @brief 标记数据包失败
          */
         void markFailed();
+
+        /**
+         * @brief 标记一个节点任务已入队
+         */
+        void markTaskScheduled();
+
+        /**
+         * @brief 标记一个节点任务结束，返回是否可安全触发完成回调
+         */
+        bool markTaskFinished();
     };
 
 } // namespace GryFlux

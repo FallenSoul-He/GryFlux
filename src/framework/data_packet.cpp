@@ -25,6 +25,8 @@ namespace GryFlux
         executionState_.graphTemplate = tmpl;
         executionState_.isGraphCompleted.store(false, std::memory_order_relaxed);
         executionState_.hasFailed.store(false, std::memory_order_relaxed);
+        executionState_.inFlight.store(0, std::memory_order_relaxed);
+        executionState_.completionNotified.store(false, std::memory_order_relaxed);
 
         // 使用 unique_ptr 避免移动/拷贝 atomic 成员
         executionState_.nodeStates.clear();
@@ -96,6 +98,29 @@ namespace GryFlux
     void DataPacket::markFailed()
     {
         executionState_.hasFailed.store(true, std::memory_order_release);
+    }
+
+    void DataPacket::markTaskScheduled()
+    {
+        executionState_.inFlight.fetch_add(1, std::memory_order_acq_rel);
+    }
+
+    bool DataPacket::markTaskFinished()
+    {
+        const uint32_t remaining = executionState_.inFlight.fetch_sub(1, std::memory_order_acq_rel) - 1;
+        if (remaining != 0)
+        {
+            return false;
+        }
+
+        if (!executionState_.isGraphCompleted.load(std::memory_order_acquire))
+        {
+            return false;
+        }
+
+        bool expected = false;
+        return executionState_.completionNotified.compare_exchange_strong(
+            expected, true, std::memory_order_acq_rel);
     }
 
 } // namespace GryFlux

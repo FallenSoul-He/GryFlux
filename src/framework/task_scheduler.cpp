@@ -51,6 +51,7 @@ namespace GryFlux
             Profiling::recordNodeScheduled(packet, packet->executionState_.graphTemplate->getTask(nodeIndex).nodeId);
         }
 
+        packet->markTaskScheduled();
         threadPool_->enqueue(packetPriority, [this, packet, nodeIndex, packetPriority]()
                              { executeNode(packet, nodeIndex, packetPriority); });
     }
@@ -62,6 +63,10 @@ namespace GryFlux
 
         if (packet->executionState_.isGraphCompleted.load(std::memory_order_acquire))
         {
+            if (packet->markTaskFinished())
+            {
+                onGraphCompleted(packet);
+            }
             return;
         }
 
@@ -150,6 +155,7 @@ namespace GryFlux
                     Profiling::recordNodeScheduled(packet, tmpl->getTask(succIdx).nodeId);
                 }
 
+                packet->markTaskScheduled();
                 successorTasks.emplace_back([this, packet, succIdx, priority]()
                                             { executeNode(packet, succIdx, priority); });
             }
@@ -160,7 +166,7 @@ namespace GryFlux
             threadPool_->enqueueBatch(priority, std::move(successorTasks));
         }
 
-        if (nodeIndex == tmpl->getOutputNodeIndex())
+        if (packet->markTaskFinished())
         {
             onGraphCompleted(packet);
         }
