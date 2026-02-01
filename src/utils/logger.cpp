@@ -17,7 +17,13 @@
 #include "utils/logger.h"
 #include <iostream>
 #include <ctime>
-#include <filesystem>
+#if __has_include(<filesystem>)
+  #include <filesystem>
+  namespace fs = std::filesystem;
+#else
+  #include <experimental/filesystem>
+  namespace fs = std::experimental::filesystem;
+#endif
 
 namespace GryFlux
 {
@@ -32,12 +38,12 @@ namespace GryFlux
         try
         {
             // 确保/var/log目录存在
-            std::filesystem::path dirPath("/var/log");
-            if (!std::filesystem::exists(dirPath))
+            fs::path dirPath("/var/log");
+            if (!fs::exists(dirPath))
             {
                 try
                 {
-                    std::filesystem::create_directories(dirPath);
+                    fs::create_directories(dirPath);
                 }
                 catch (const std::exception &e)
                 {
@@ -104,7 +110,7 @@ namespace GryFlux
         }
 
         // 打开新文件
-        std::string filePath = (std::filesystem::path(fileRoot) / this->generateLogFileName(this->app_name_)).string();
+        std::string filePath = (fs::path(fileRoot) / this->generateLogFileName(this->app_name_)).string();
         logFile_.open(filePath, std::ios::out | std::ios::app);
         if (!logFile_.is_open())
         {

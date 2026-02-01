@@ -3,9 +3,17 @@ project(GryFlux VERSION 1.0.0 LANGUAGES CXX C)
 
 message(STATUS "Graph profiling build switch: compile with -DGRYFLUX_BUILD_PROFILING=1 (or 0) and rebuild")
 
+include(CheckCXXCompilerFlag)
+
 # Set common compile warning suppressions and linking options
 function(set_common_compile_flags)
-    set(common_flags "-Wl,--allow-shlib-undefined -Wno-class-memaccess -Wno-deprecated-declarations -Wno-sign-compare")
+    set(common_flags "-Wl,--allow-shlib-undefined -Wno-deprecated-declarations -Wno-sign-compare")
+
+    check_cxx_compiler_flag("-Wno-class-memaccess" GRYFLUX_HAS_WNO_CLASS_MEMACCESS)
+    if(GRYFLUX_HAS_WNO_CLASS_MEMACCESS)
+        set(common_flags "${common_flags} -Wno-class-memaccess")
+    endif()
+
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${common_flags}" PARENT_SCOPE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${common_flags}" PARENT_SCOPE)
 endfunction()
