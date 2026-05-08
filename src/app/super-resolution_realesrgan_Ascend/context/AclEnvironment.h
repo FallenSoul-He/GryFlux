@@ -2,12 +2,14 @@
 
 #include <string>
 
-namespace YoloxRuntime {
+namespace VQCodecRuntime
+{
 
-class AclEnvironment {
+class AclEnvironment
+{
 public:
-    static bool acquire(int device_id, std::string* error);
-    static void release(int device_id);
+    static bool acquire(int deviceId, std::string *error);
+    static void release(int deviceId);
 };
 
-}  // namespace YoloxRuntime
+} // namespace VQCodecRuntime

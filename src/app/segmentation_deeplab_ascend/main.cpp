@@ -6,7 +6,7 @@
 #include "utils/logger.h"
 
 #include "consumer/deeplab_result_consumer.h"
-#include "context/infercontext.h"
+#include "context/OmInferenceContext.h"
 #include "nodes/custom_nodes.h"
 #include "source/deeplab_source.h"
 
@@ -54,7 +54,7 @@ std::shared_ptr<GryFlux::ResourcePool> BuildResourcePool(const AppOptions& optio
     auto resource_pool = std::make_shared<GryFlux::ResourcePool>();
     resource_pool->registerResourceType(
         "npu",
-        CreateInferContexts(options.model_path, 0, kNpuInstances));
+        CreateOmInferenceContexts(options.model_path, 0, kNpuInstances));
     return resource_pool;
 }
 

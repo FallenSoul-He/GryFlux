@@ -1,76 +1,80 @@
-#include "context/AclEnvironment.h"
+#include "AclEnvironment.h"
 
-#include "acl/acl.h"
+#include <acl/acl.h>
 
 #include <mutex>
 #include <unordered_map>
 
-namespace YoloxRuntime {
-namespace {
+namespace VQCodecRuntime
+{
+namespace
+{
 
-std::mutex g_mutex;
-size_t g_ref_count = 0;
-std::unordered_map<int, size_t> g_device_ref_counts;
+std::mutex gMutex;
+size_t gRefCount = 0;
+std::unordered_map<int, size_t> gDeviceRefCounts;
 
-}  // namespace
+} // namespace
 
-bool AclEnvironment::acquire(int device_id, std::string* error) {
-    std::lock_guard<std::mutex> lock(g_mutex);
+bool AclEnvironment::acquire(int deviceId, std::string *error)
+{
+    std::lock_guard<std::mutex> lock(gMutex);
 
-    if (g_ref_count == 0) {
-        const aclError init_ret = aclInit(nullptr);
-        if (init_ret != ACL_ERROR_NONE) {
+    if (gRefCount == 0) {
+        const aclError initRet = aclInit(nullptr);
+        if (initRet != ACL_ERROR_NONE) {
             if (error != nullptr) {
-                *error = "aclInit failed, code=" + std::to_string(init_ret);
+                *error = "aclInit failed, code=" + std::to_string(initRet);
             }
             return false;
         }
     }
 
-    auto device_it = g_device_ref_counts.find(device_id);
-    if (device_it == g_device_ref_counts.end()) {
-        const aclError set_ret = aclrtSetDevice(device_id);
-        if (set_ret != ACL_ERROR_NONE) {
-            if (g_ref_count == 0) {
+    auto deviceIt = gDeviceRefCounts.find(deviceId);
+    if (deviceIt == gDeviceRefCounts.end()) {
+        const aclError setRet = aclrtSetDevice(deviceId);
+        if (setRet != ACL_ERROR_NONE) {
+            if (gRefCount == 0) {
                 aclFinalize();
             }
             if (error != nullptr) {
-                *error = "aclrtSetDevice failed, code=" + std::to_string(set_ret);
+                *error = "aclrtSetDevice failed, code=" + std::to_string(setRet);
             }
             return false;
         }
-        g_device_ref_counts.emplace(device_id, 1);
+        gDeviceRefCounts.emplace(deviceId, 1);
     } else {
-        ++device_it->second;
+        ++deviceIt->second;
     }
 
-    ++g_ref_count;
+    ++gRefCount;
     return true;
 }
 
-void AclEnvironment::release(int device_id) {
-    std::lock_guard<std::mutex> lock(g_mutex);
-    if (g_ref_count == 0) {
+void AclEnvironment::release(int deviceId)
+{
+    std::lock_guard<std::mutex> lock(gMutex);
+    if (gRefCount == 0) {
         return;
     }
 
-    auto device_it = g_device_ref_counts.find(device_id);
-    if (device_it == g_device_ref_counts.end()) {
+    auto deviceIt = gDeviceRefCounts.find(deviceId);
+    if (deviceIt == gDeviceRefCounts.end()) {
         return;
     }
 
-    if (device_it->second > 1) {
-        --device_it->second;
+    if (deviceIt->second > 1) {
+        --deviceIt->second;
     } else {
-        g_device_ref_counts.erase(device_it);
-        aclrtSetDevice(device_id);
-        aclrtResetDevice(device_id);
+        gDeviceRefCounts.erase(deviceIt);
+        aclrtSetDevice(deviceId);
+        aclrtResetDevice(deviceId);
     }
 
-    --g_ref_count;
-    if (g_ref_count == 0) {
+    --gRefCount;
+    if (gRefCount == 0) {
         aclFinalize();
     }
 }
 
-}  // namespace YoloxRuntime
+} // namespace VQCodecRuntime
